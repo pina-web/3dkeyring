@@ -7854,6 +7854,7 @@ input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-rad
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const $=id=>document.getElementById(id);
 const toast=(m,k='ok')=>{const t=$('toast');t.textContent=m;t.className='toast show '+k;clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='toast '+k,2600);};
@@ -8204,8 +8205,11 @@ function buildKeyring(rawContours){
   // TOP geometry (letters/shape) — holes punched through
   const topShapes=contoursToShapes(contours.map(c=>c.slice()));
   attachHoles(topShapes,holeContours);
-  const topGeo=new THREE.ExtrudeGeometry(topShapes,{depth:state.height,bevelEnabled:false,curveSegments:12});
-  topGeo.translate(0,0,state.useOutline?state.baseH:0);
+  let topGeo=new THREE.ExtrudeGeometry(topShapes,{depth:state.height,bevelEnabled:false,curveSegments:12});
+  // sink the letters EMBED mm into the base so the two solids overlap (no floating gap, watertight bond)
+  const EMBED=state.useOutline?Math.min(0.6,state.baseH*0.5):0;
+  topGeo.translate(0,0,state.useOutline?(state.baseH-EMBED):0);
+  topGeo=manifold(topGeo);
 
   let baseGeo=null;
   if(state.useOutline){
@@ -8221,10 +8225,18 @@ function buildKeyring(rawContours){
     if(baseShapeObjs.length){
       // all holes still punch through the base (so the eyelet has a real hole)
       attachHoles(baseShapeObjs,holeContours);
-      baseGeo=new THREE.ExtrudeGeometry(baseShapeObjs,{depth:state.baseH,bevelEnabled:false,curveSegments:12});
+      baseGeo=manifold(new THREE.ExtrudeGeometry(baseShapeObjs,{depth:state.baseH,bevelEnabled:false,curveSegments:12}));
     }
   }
   return{top:topGeo,base:baseGeo,w:baseW,d:baseD};
+}
+// weld duplicate vertices so faces share edges -> closed manifold solid (kills non-manifold edge errors)
+function manifold(geo){
+  geo.deleteAttribute('normal');geo.deleteAttribute('uv');
+  let g;try{g=mergeVertices(geo,1e-4);}catch(e){g=geo;}
+  g.computeVertexNormals();
+  return g;
+}
 }
 function attachHoles(shapeObjs,holeContours){
   for(const hc of holeContours){
@@ -8374,8 +8386,7 @@ function exportSTLZip(){
 }
 
 // ----- 3MF with per-part filament colors (opens colored in Bambu Studio) -----
-function geomToMeshXML(geom,matrix,objId,vBase){
-  // returns {xml, vCount}; bakes world matrix into vertices
+function meshObjectXML(geom,matrix,objId){
   const pos=geom.attributes.position;const idx=geom.index;
   let verts='',tris='';
   const v=new THREE.Vector3();
@@ -8386,26 +8397,37 @@ function geomToMeshXML(geom,matrix,objId,vBase){
 }
 function export3MF(){
   if(!lastBuilt){toast('먼저 모델을 만들어 주세요','err');return;}
-  // filament 1 = top color, filament 2 = base color
   const topHex=state.topColor.toUpperCase(), baseHex=state.baseColor.toUpperCase();
-  const objects=[];let oid=1;
-  modelGroup.children.forEach(child=>{
+  // Build, for each keyring (group), a PARENT object whose components reference its part meshes.
+  // model_settings then assigns extruder per part (top=1, base=2) -> two changeable colors in Bambu.
+  const meshObjs=[];      // {id, xml}
+  const parents=[];       // {id, parts:[{meshId,ext,name}]}
+  let nextId=1;
+  modelGroup.children.forEach((child,gi)=>{
     child.updateMatrixWorld(true);
+    const parts=[];
     child.children.forEach(mesh=>{
-      const ext=mesh.userData.role==='base'?2:1;
       mesh.updateMatrixWorld(true);
-      objects.push({id:oid,xml:geomToMeshXML(mesh.geometry,mesh.matrixWorld,oid),ext});
-      oid++;
+      const mid=nextId++;
+      meshObjs.push({id:mid,xml:meshObjectXML(mesh.geometry,mesh.matrixWorld,mid)});
+      parts.push({meshId:mid,ext:mesh.userData.role==='base'?2:1,name:mesh.userData.role==='base'?'base':'top'});
     });
+    const pid=nextId++;
+    parents.push({id:pid,parts,name:(child.userData.item&&child.userData.item.label)||('keyring'+(gi+1))});
   });
-  if(!objects.length){toast('내보낼 메시가 없습니다','err');return;}
+  if(!meshObjs.length){toast('내보낼 메시가 없습니다','err');return;}
+
+  const resourceXML=[
+    ...meshObjs.map(o=>'  '+o.xml),
+    ...parents.map(p=>`  <object id="${p.id}" type="model"><components>${p.parts.map(pt=>`<component objectid="${pt.meshId}"/>`).join('')}</components></object>`)
+  ].join('\n');
   const modelXML=`<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
  <resources>
-${objects.map(o=>'  '+o.xml).join('\n')}
+${resourceXML}
  </resources>
  <build>
-${objects.map(o=>`  <item objectid="${o.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>`).join('\n')}
+${parents.map(p=>`  <item objectid="${p.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>`).join('\n')}
  </build>
 </model>`;
   const contentTypes=`<?xml version="1.0" encoding="UTF-8"?>
@@ -8414,9 +8436,17 @@ ${objects.map(o=>`  <item objectid="${o.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`;
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>
 <config>
-${objects.map(o=>`<object id="${o.id}"><metadata key="name" value="part_${o.id}"/><part id="${o.id}" subtype="normal_part"><metadata key="extruder" value="${o.ext}"/></part></object>`).join('\n')}
+${parents.map(p=>`<object id="${p.id}"><metadata key="name" value="${p.name}"/>
+${p.parts.map(pt=>`  <part id="${pt.meshId}" subtype="normal_part"><metadata key="name" value="${pt.name}"/><metadata key="extruder" value="${pt.ext}"/></part>`).join('\n')}
+</object>`).join('\n')}
 </config>`;
-  const project={filament_colour:[topHex,baseHex],filament_type:["PLA","PLA"],filament_settings_id:["Generic PLA","Generic PLA"],version:"1"};
+  const project={
+    filament_colour:[topHex,baseHex],
+    filament_type:["PLA","PLA"],
+    filament_settings_id:["Generic PLA","Generic PLA"],
+    filament_ids:["GFL99","GFL99"],
+    version:"1"
+  };
   const files={
     '[Content_Types].xml':fflate.strToU8(contentTypes),
     '_rels/.rels':fflate.strToU8(rels),
@@ -8426,7 +8456,7 @@ ${objects.map(o=>`<object id="${o.id}"><metadata key="name" value="part_${o.id}"
   };
   const zipped=fflate.zipSync(files,{level:6});
   downloadBlob(zipped,projectTag()+'.3mf',true);
-  toast('3MF 다운로드 ✔ (색상 포함)');
+  toast('3MF 다운로드 ✔ (글자·베이스 색 분리)');
 }
 
 
