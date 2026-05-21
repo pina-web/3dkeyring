@@ -6,7 +6,7 @@
 <title>KEYFORGE · 키링 STL 생성기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Pacifico&family=Bebas+Neue&family=Lobster&family=Righteous&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Pacifico&family=Bebas+Neue&family=Lobster&family=Righteous&family=Fredoka:wght@500;600;700&family=Noto+Sans+KR:wght@400;700&family=Nanum+Gothic:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0b0f;--panel:#14161e;--panel-2:#1b1e29;--line:#2a2e3d;--txt:#e8eaf0;--muted:#8b90a3;--accent:#ff5c3a;--accent-2:#42d6a4;--blue:#4d8dff;--shadow:0 8px 32px rgba(0,0,0,.45)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -130,7 +130,7 @@ input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-rad
     </div>
     <div class="section" data-sec id="sec-text">
       <div class="sec-head"><div class="sec-num">2</div><div class="sec-title">이름 입력 <span style="color:var(--muted);font-weight:400">(한 줄에 하나)</span></div><div class="sec-chev">▾</div></div>
-      <div class="sec-body"><textarea id="names" rows="5" placeholder="Marek&#10;John&#10;Sofie">Home</textarea><div style="font-size:11px;color:var(--muted);margin-top:6px" id="nameCount">1 / 14</div></div>
+      <div class="sec-body"><textarea id="names" rows="5" placeholder="민준&#10;서연&#10;Home">Home</textarea><div style="font-size:11px;color:var(--muted);margin-top:6px" id="nameCount">1 / 14</div><p style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">한글도 입력 가능합니다. 폰트 3·4·5(본고딕·나눔고딕·검은고딕 등)에서 한글이 또렷하게 출력됩니다.</p></div>
     </div>
     <div class="section" data-sec id="sec-font">
       <div class="sec-head"><div class="sec-num">3</div><div class="sec-title">폰트 & 스타일</div><div class="sec-chev">▾</div></div>
@@ -7875,6 +7875,12 @@ const FONTS=[
   {name:'Righteous',label:'Round',glyph:'Aa',css:'Righteous',url:'https://cdn.jsdelivr.net/fontsource/fonts/righteous@latest/latin-400-normal.ttf'},
   {name:'Fredoka',label:'Fredoka',glyph:'Aa',css:'Fredoka',url:'https://cdn.jsdelivr.net/fontsource/fonts/fredoka@latest/latin-600-normal.ttf'},
   {name:'Grotesk',label:'Modern',glyph:'Aa',css:'Space Grotesk',url:'https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-600-normal.ttf'},
+  // ---- 저작권 프리(오픈 라이선스) 한글 폰트 — opentype.js가 읽을 수 있는 woff 사용 ----
+  {name:'NotoKR',label:'본고딕',glyph:'가나',css:'Noto Sans KR',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-kr@latest/korean-400-normal.woff'},
+  {name:'NanumGothic',label:'나눔고딕',glyph:'가나',css:'Nanum Gothic',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/nanum-gothic@latest/korean-700-normal.woff'},
+  {name:'BlackHanSans',label:'검은고딕',glyph:'가나',css:'Black Han Sans',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/black-han-sans@latest/korean-400-normal.woff'},
+  {name:'Jua',label:'주아체',glyph:'가나',css:'Jua',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/jua@latest/korean-400-normal.woff'},
+  {name:'DoHyeon',label:'도현체',glyph:'가나',css:'Do Hyeon',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/do-hyeon@latest/korean-400-normal.woff'},
 ];
 const PALETTE=['#ffffff','#111111','#d12c2c','#ff7a00','#ffd000','#2ec27e','#1f8feb','#7b48d6','#ff5fa2','#8a5a2b','#c0c0c0','#3a3f4d'];
 
