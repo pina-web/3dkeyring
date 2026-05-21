@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KEYFORGE · 키링 STL 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Pacifico&family=Bebas+Neue&family=Lobster&family=Righteous&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0b0f;--panel:#14161e;--panel-2:#1b1e29;--line:#2a2e3d;--txt:#e8eaf0;--muted:#8b90a3;--accent:#ff5c3a;--accent-2:#42d6a4;--blue:#4d8dff;--shadow:0 8px 32px rgba(0,0,0,.45)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Space Grotesk',-apple-system,system-ui,sans-serif;background:radial-gradient(1200px 700px at 80% -10%,rgba(77,141,255,.12),transparent 60%),radial-gradient(900px 600px at -10% 110%,rgba(255,92,58,.10),transparent 55%),var(--bg);color:var(--txt);overflow:hidden}
+.app{display:grid;grid-template-columns:380px 1fr;height:100vh}
+.brandbar{position:absolute;top:0;left:0;right:0;height:54px;z-index:30;display:flex;align-items:center;gap:14px;padding:0 22px;background:linear-gradient(180deg,rgba(10,11,15,.92),rgba(10,11,15,.4) 70%,transparent);pointer-events:none}
+.brandbar .logo{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;background:linear-gradient(92deg,var(--accent),#ffb199);-webkit-background-clip:text;background-clip:text;color:transparent;pointer-events:auto}
+.brandbar .logo span{color:var(--blue);-webkit-text-fill-color:var(--blue)}
+.brandbar .tag{font-size:12px;color:var(--muted);letter-spacing:.5px;margin-top:4px}
+.sidebar{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:64px 0 40px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.sidebar::-webkit-scrollbar{width:8px}.sidebar::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.section{border-bottom:1px solid var(--line)}
+.sec-head{display:flex;align-items:center;gap:10px;padding:15px 20px;cursor:pointer;user-select:none;transition:background .15s}
+.sec-head:hover{background:var(--panel-2)}
+.sec-num{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:var(--accent);color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.sec-title{font-size:13.5px;font-weight:600;letter-spacing:.4px;flex:1}
+.sec-chev{color:var(--muted);transition:transform .2s;font-size:12px}
+.section.collapsed .sec-chev{transform:rotate(-90deg)}.section.collapsed .sec-body{display:none}
+.sec-body{padding:4px 20px 20px}
+label.fld{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 6px}
+label.fld:first-child{margin-top:4px}
+textarea,input[type=text],select{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px 12px;font-size:14px;font-family:inherit;transition:border .15s,box-shadow .15s}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,92,58,.15)}
+textarea{resize:vertical;min-height:46px;line-height:1.5}
+.slider-row{display:flex;align-items:center;gap:12px;margin-top:4px}
+input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;background:var(--line);flex:1;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:var(--accent);border:3px solid #fff2;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);border:none;cursor:pointer}
+.slider-val{font-size:13px;font-variant-numeric:tabular-nums;min-width:54px;text-align:right;color:var(--txt)}
+.color-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.swatch{width:30px;height:30px;border-radius:9px;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.swatch:hover{transform:scale(1.1)}.swatch.sel{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.color-pick-wrap{display:flex;align-items:center;gap:10px;margin-top:8px}
+input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);cursor:pointer;padding:2px}
+.font-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.font-btn{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 8px;cursor:pointer;text-align:center;font-size:22px;color:var(--txt);transition:all .15s;line-height:1}
+.font-btn:hover{border-color:var(--muted)}.font-btn.sel{border-color:var(--accent);background:rgba(255,92,58,.08)}
+.font-btn small{display:block;font-family:'Space Grotesk';font-size:9px;color:var(--muted);margin-top:6px;letter-spacing:.5px}
+.shape-tabs{display:flex;gap:6px;margin-bottom:12px}
+.shape-tab{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px;font-size:11.5px;cursor:pointer;text-align:center;color:var(--muted);transition:all .15s}
+.shape-tab.sel{color:var(--txt);border-color:var(--accent);background:rgba(255,92,58,.07)}
+.shape-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:6px}
+.shape-cell{aspect-ratio:1;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;cursor:pointer;display:grid;place-items:center;padding:7px;transition:all .14s;position:relative}
+.shape-cell:hover{border-color:var(--muted);transform:translateY(-1px)}
+.shape-cell.sel{border-color:var(--accent);background:rgba(255,92,58,.1)}
+.shape-cell svg{width:100%;height:100%;fill:var(--txt)}
+.shape-cell img{width:100%;height:100%;object-fit:contain;filter:invert(.85)}
+.shape-cell .del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;display:none;place-items:center;cursor:pointer;border:2px solid var(--panel);z-index:2}
+.shape-cell.custom:hover .del{display:grid}
+.upload-zone{margin-top:10px;border:1.5px dashed var(--line);border-radius:11px;padding:16px;text-align:center;cursor:pointer;transition:all .15s;color:var(--muted);font-size:12.5px;line-height:1.5}
+.upload-zone:hover{border-color:var(--accent);color:var(--txt);background:rgba(255,92,58,.04)}
+.mode-toggle{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:4px;gap:4px}
+.mode-toggle button{flex:1;background:transparent;border:none;color:var(--muted);padding:9px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;transition:all .15s}
+.mode-toggle button.sel{background:var(--accent);color:#fff}
+.toggle{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.toggle .lbl{font-size:13px}
+.sw{position:relative;width:42px;height:24px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sw .track{position:absolute;inset:0;background:var(--line);border-radius:24px;transition:.2s;cursor:pointer}
+.sw .track:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked+.track{background:var(--accent-2)}.sw input:checked+.track:before{transform:translateX(18px)}
+.hole-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+.hole-item .hh{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;font-size:12px;font-weight:600}
+.hole-item .hh button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:18px;line-height:1}
+.mini-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+.mini-row>span{font-size:10px;color:var(--muted);width:48px;text-transform:uppercase}
+.mini-row input[type=range]{height:4px}
+.btn{width:100%;border:none;border-radius:11px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.3px}
+.btn-add{background:var(--panel-2);border:1px solid var(--line);color:var(--txt);margin-top:12px}
+.btn-add:hover{border-color:var(--accent-2);color:var(--accent-2)}
+.viewport{position:relative;background:radial-gradient(circle at 50% 40%,#1a1d28,#0a0b0f 75%)}
+#canvas{width:100%;height:100%;display:block}
+.vp-toolbar{position:absolute;top:64px;right:22px;z-index:20;display:flex;flex-direction:column;gap:8px}
+.vp-btn{width:44px;height:44px;border-radius:12px;background:rgba(27,30,41,.85);backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--txt);cursor:pointer;display:grid;place-items:center;transition:all .15s}
+.vp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.vp-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.vp-foot{position:absolute;left:0;right:0;bottom:0;z-index:20;padding:18px 24px;background:linear-gradient(0deg,rgba(10,11,15,.95),transparent);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.dims{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.dims b{color:var(--txt);font-weight:600}
+.spacer{flex:1}
+.btn-export{width:auto;padding:14px 28px;background:linear-gradient(95deg,var(--accent-2),#2fb88a);color:#04140d;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-size:14.5px;box-shadow:0 6px 24px rgba(66,214,164,.3);transition:all .15s;display:flex;align-items:center;gap:9px}
+.btn-export:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(66,214,164,.45)}
+.btn-export:disabled{opacity:.5;cursor:wait;transform:none}
+.btn-export svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2}
+.exp-menu{position:absolute;bottom:70px;right:24px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:var(--shadow);display:none;z-index:25;min-width:230px}
+.exp-menu.show{display:block}
+.exp-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--txt);padding:11px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px}
+.exp-menu button:hover{background:var(--panel)}
+.exp-menu button small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.hint{position:absolute;top:64px;left:22px;z-index:20;font-size:12px;color:var(--muted);background:rgba(27,30,41,.7);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:8px 13px;max-width:240px;line-height:1.55}
+.hint b{color:var(--accent-2)}
+.loader{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,11,15,.55);z-index:25;font-size:13px;color:var(--muted)}
+.loader.hidden{display:none}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(140px);z-index:50;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px 22px;font-size:13.5px;box-shadow:var(--shadow);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);max-width:80vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--accent-2)}.toast.err{border-color:var(--accent)}
+@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:44vh 1fr}.sidebar{order:2;border-right:none;border-top:1px solid var(--line);padding-top:18px}.brandbar{height:46px}.viewport{order:1}.vp-toolbar{top:54px}.hint{display:none}}
+</style>
+</head>
+<body>
+<div class="brandbar"><div><div class="logo">KEY<span>FORGE</span></div><div class="tag">멀티 키링 STL 생성기 · Bambu Lab Ready</div></div></div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="section" data-sec>
+      <div class="sec-head"><div class="sec-num">1</div><div class="sec-title">제작 모드</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <div class="mode-toggle"><button class="sel" data-mode="text">텍스트 키링</button><button data-mode="shape">도형 키링</button></div>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5"><b style="color:var(--txt)">텍스트</b>: 이름·문구를 입체 글자로. 외곽선 두께 지정.<br><b style="color:var(--txt)">도형</b>: 기본 30종 또는 내가 올린 모양.</p>
+      </div>
+    </div>
+    <div class="section" data-sec id="sec-text">
+      <div class="sec-head"><div class="sec-num">2</div><div class="sec-title">이름 입력 <span style="color:var(--muted);font-weight:400">(한 줄에 하나)</span></div><div class="sec-chev">▾</div></div>
+      <div class="sec-body"><textarea id="names" rows="5" placeholder="Marek&#10;John&#10;Sofie">Home</textarea><div style="font-size:11px;color:var(--muted);margin-top:6px" id="nameCount">1 / 14</div></div>
+    </div>
+    <div class="section" data-sec id="sec-font">
+      <div class="sec-head"><div class="sec-num">3</div><div class="sec-title">폰트 & 스타일</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <label class="fld">폰트</label><div class="font-grid" id="fontGrid"></div>
+        <div class="upload-zone" id="uploadFont" style="margin-top:8px">＋ 내 폰트 추가 (TTF / OTF / WOFF)<br><span style="font-size:10.5px">PC·아이패드 등에서 폰트 파일을 직접 선택</span></div>
+        <input type="file" id="fontFile" accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff,application/font-woff,application/x-font-ttf,application/x-font-opentype" hidden>
+        <p style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.55;border-left:2px solid var(--line);padding-left:9px">⚠ 개인 폰트 사용으로 인해 발생한 저작권과 관련한 모든 책임은 사용자에게 있습니다.</p>
+        <label class="fld">글자 크기</label><div class="slider-row"><input type="range" id="fontSize" min="10" max="60" value="28" step="1"><div class="slider-val"><span id="fontSizeV">28</span>mm</div></div>
+        <label class="fld">자간</label><div class="slider-row"><input type="range" id="letterSpace" min="-3" max="14" value="0" step="0.5"><div class="slider-val"><span id="letterSpaceV">0</span>mm</div></div>
+      </div>
+    </div>
+    <div class="section collapsed" data-sec id="sec-shape">
+      <div class="sec-head"><div class="sec-num">4</div><div class="sec-title">도형 선택</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <div class="shape-tabs"><div class="shape-tab sel" data-stab="base">기본 30종</div><div class="shape-tab" data-stab="custom">내 모양</div></div>
+        <div class="shape-grid" id="shapeGridBase"></div>
+        <div id="customWrap" style="display:none">
+          <div class="shape-grid" id="shapeGridCustom"></div>
+          <div class="upload-zone" id="uploadShape">＋ SVG / PNG / JPG 올려서 모양 추가<br><span style="font-size:10.5px">업로드한 모양은 자동 저장됩니다</span></div>
+          <input type="file" id="shapeFile" accept=".svg,image/png,image/jpeg" hidden>
+        </div>
+        <label class="fld">도형 크기</label><div class="slider-row"><input type="range" id="shapeSize" min="15" max="90" value="45" step="1"><div class="slider-val"><span id="shapeSizeV">45</span>mm</div></div>
+      </div>
+    </div>
+    <div class="section" data-sec>
+      <div class="sec-head"><div class="sec-num">5</div><div class="sec-title">두께 & 외곽선</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <label class="fld">상단(글자/모양) 높이</label><div class="slider-row"><input type="range" id="height" min="0.6" max="8" value="1.6" step="0.1"><div class="slider-val"><span id="heightV">1.6</span>mm</div></div>
+        <div class="toggle"><span class="lbl">외곽선(베이스) 만들기</span><label class="sw"><input type="checkbox" id="useOutline" checked><span class="track"></span></label></div>
+        <div id="outlineOpts">
+          <label class="fld">외곽선 두께(폭)</label><div class="slider-row"><input type="range" id="outlineW" min="0.6" max="6" value="2" step="0.1"><div class="slider-val"><span id="outlineWV">2.0</span>mm</div></div>
+          <label class="fld">베이스 높이</label><div class="slider-row"><input type="range" id="baseH" min="0.6" max="6" value="2" step="0.1"><div class="slider-val"><span id="baseHV">2.0</span>mm</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="section" data-sec>
+      <div class="sec-head"><div class="sec-num">6</div><div class="sec-title">색상</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <label class="fld">상단(글자/모양) 색</label><div class="color-grid" id="topColors"></div>
+        <div class="color-pick-wrap"><input type="color" id="topCustom" value="#ffffff"><span style="font-size:12px;color:var(--muted)">직접 선택</span></div>
+        <label class="fld">베이스(외곽선) 색</label><div class="color-grid" id="baseColors"></div>
+        <div class="color-pick-wrap"><input type="color" id="baseCustom" value="#d12c2c"><span style="font-size:12px;color:var(--muted)">직접 선택</span></div>
+      </div>
+    </div>
+    <div class="section" data-sec>
+      <div class="sec-head"><div class="sec-num">7</div><div class="sec-title">타공 구멍</div><div class="sec-chev">▾</div></div>
+      <div class="sec-body">
+        <p style="font-size:11.5px;color:var(--muted);line-height:1.5">슬라이더로 위치·지름을 조절하세요. 실제 STL에서 관통됩니다.</p>
+        <div id="holeList"></div>
+        <button class="btn btn-add" id="addHole">＋ 구멍 추가</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="viewport">
+    <div class="hint">🖱 드래그: 회전 · 휠: 확대 · 우클릭: 이동<br><b>실시간 미리보기</b> — 설정을 바꾸면 즉시 반영</div>
+    <div class="vp-toolbar">
+      <button class="vp-btn" id="resetView" title="시점 초기화"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3"/><path d="M3 4v5h5"/></svg></button>
+      <button class="vp-btn" id="topView" title="위에서 보기"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></button>
+    </div>
+    <div class="loader hidden" id="loader"><div><div class="spin"></div>모델 생성 중…</div></div>
+    <canvas id="canvas"></canvas>
+    <div class="exp-menu" id="expMenu">
+      <button data-exp="combined">통합 STL 1개<small>상단+베이스 합본 · 단색 출력용</small></button>
+      <button data-exp="split">색상별 분리 STL 2개<small>상단 / 베이스 따로 · 멀티컬러 출력용</small></button>
+      <button data-exp="png">현재 화면 PNG<small>참고용 이미지</small></button>
+    </div>
+    <div class="vp-foot">
+      <div class="dims">크기 <b id="dimW">–</b> × <b id="dimD">–</b> mm · 두께 <b id="dimH">–</b> mm · 개수 <b id="dimN">–</b></div>
+      <div class="spacer"></div>
+      <button class="btn-export" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>STL 다운로드</button>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+
+const $=id=>document.getElementById(id);
+const toast=(m,k='ok')=>{const t=$('toast');t.textContent=m;t.className='toast show '+k;clearTimeout(toast._t);toast._t=setTimeout(()=>t.className='toast '+k,2600);};
+
+/* ============ STATE ============ */
+const state={
+  mode:'text', font:null, fontName:'Pacifico',
+  fontSize:28, letterSpace:0,
+  shapeId:'rounded', shapeSize:45, shapeTab:'base',
+  height:1.6, useOutline:true, outlineW:2, baseH:2,
+  topColor:'#ffffff', baseColor:'#d12c2c',
+  holes:[{x:-0.46,y:0,r:2.3}],
+};
+
+const FONTS=[
+  {name:'Pacifico',label:'Script',glyph:'Aa',css:'Pacifico',url:'https://cdn.jsdelivr.net/fontsource/fonts/pacifico@latest/latin-400-normal.ttf'},
+  {name:'Lobster',label:'Lobster',glyph:'Aa',css:'Lobster',url:'https://cdn.jsdelivr.net/fontsource/fonts/lobster@latest/latin-400-normal.ttf'},
+  {name:'Bebas',label:'Tall',glyph:'AB',css:'Bebas Neue',url:'https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.ttf'},
+  {name:'Righteous',label:'Round',glyph:'Aa',css:'Righteous',url:'https://cdn.jsdelivr.net/fontsource/fonts/righteous@latest/latin-400-normal.ttf'},
+  {name:'Fredoka',label:'Fredoka',glyph:'Aa',css:'Fredoka',url:'https://cdn.jsdelivr.net/fontsource/fonts/fredoka@latest/latin-600-normal.ttf'},
+  {name:'Grotesk',label:'Modern',glyph:'Aa',css:'Space Grotesk',url:'https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-600-normal.ttf'},
+];
+const PALETTE=['#ffffff','#111111','#d12c2c','#ff7a00','#ffd000','#2ec27e','#1f8feb','#7b48d6','#ff5fa2','#8a5a2b','#c0c0c0','#3a3f4d'];
+
+const SHAPES={
+  circle:'M50 5a45 45 0 100 90 45 45 0 000-90z',
+  rounded:'M22 14h56a14 14 0 0114 14v44a14 14 0 01-14 14H22A14 14 0 018 72V28A14 14 0 0122 14z',
+  square:'M14 14h72v72H14z',
+  heart:'M50 86C20 64 8 48 8 32 8 18 19 10 31 10c8 0 15 4 19 11 4-7 11-11 19-11 12 0 23 8 23 22 0 16-12 32-42 54z',
+  star:'M50 6l11 27 29 2-22 19 7 28-25-15-25 15 7-28-22-19 29-2z',
+  star6:'M50 6l11 19 22-3-11 19 11 19-22-3-11 19-11-19-22 3 11-19-11-19 22 3z',
+  hexagon:'M50 6l38 22v44L50 94 12 72V28z',
+  octagon:'M34 8h32l26 26v32L66 92H34L8 66V34z',
+  triangle:'M50 10l42 76H8z',
+  diamond:'M50 6l40 44-40 44L10 50z',
+  pentagon:'M50 6l44 32-17 52H23L6 38z',
+  cloud:'M30 72a18 18 0 01-3-35 24 24 0 0146-5 16 16 0 014 40z',
+  flower:'M50 24c6 0 11 4 13 10 5-3 12-2 16 2s5 11 2 16c6 2 10 7 10 13s-4 11-10 13c3 5 2 12-2 16s-11 5-16 2c-2 6-7 10-13 10s-11-4-13-10c-5 3-12 2-16-2s-5-11-2-16c-6-2-10-7-10-13s4-11 10-13c-3-5-2-12 2-16s11-5 16-2c2-6 7-10 13-10z',
+  moon:'M60 8a44 44 0 100 84A36 36 0 0160 8z',
+  drop:'M50 6c18 26 28 40 28 54a28 28 0 01-56 0c0-14 10-28 28-54z',
+  shield:'M50 6l38 12v28c0 28-19 40-38 48-19-8-38-20-38-48V18z',
+  bone:'M24 32a11 11 0 1115-5 11 11 0 011 6h20a11 11 0 011-6 11 11 0 1115 5 11 11 0 11-15 26 11 11 0 01-1-5H40a11 11 0 01-1 5 11 11 0 11-15-26z',
+  arrow:'M8 40h44V22l40 28-40 28V60H8z',
+  lightning:'M58 6L22 54h22l-8 40 40-56H52z',
+  music:'M42 12v42a13 11 0 11-7-10V22l34-7v34a13 11 0 11-7-10V12z',
+  crown:'M14 74l-6-42 22 18 20-34 20 34 22-18-6 42z',
+  gem:'M30 18h40l18 24-38 50L12 42z',
+  car:'M12 58l9-22a9 9 0 018-6h42a9 9 0 018 6l9 22v14H12zM28 66a6 6 0 1112 0 6 6 0 01-12 0zM60 66a6 6 0 1112 0 6 6 0 01-12 0z',
+  house:'M50 10l40 34H78v44H22V44H10z',
+  cat:'M22 30l9 16a30 24 0 0138 0l9-16-5 26a30 26 0 01-46 0z',
+  ticket:'M10 30h80v12a8 8 0 000 16v12H10V58a8 8 0 000-16z',
+  banner:'M16 12h68v66L50 60 16 78z',
+  cross:'M40 8h20v32h32v20H60v32H40V60H8V40h32z',
+  speech:'M14 18h72a8 8 0 018 8v36a8 8 0 01-8 8H46l-22 18 4-18h-14a8 8 0 01-8-8V26a8 8 0 018-8z',
+  leaf:'M22 84C14 50 42 16 86 14 82 56 56 84 22 84z',
+  paw:'M50 54c11 0 20 7 20 16s-9 13-20 13-20-4-20-13 9-16 20-16zM28 30a8 10 0 110 .1zM44 22a8 11 0 110 .1zM62 26a8 11 0 110 .1zM76 42a8 10 0 110 .1z',
+};
+const SHAPE_ORDER=Object.keys(SHAPES);
+
+const CUSTOM_KEY='kf_custom_v1';
+const loadCustom=()=>{try{return JSON.parse(localStorage.getItem(CUSTOM_KEY)||'[]');}catch(e){return[];}};
+const saveCustom=a=>{try{localStorage.setItem(CUSTOM_KEY,JSON.stringify(a.map(({_contours,...r})=>r)));}catch(e){toast('저장 공간이 가득 찼습니다','err');}};
+let customShapes=loadCustom();
+// rehydrate stored image contours into Vector2 arrays
+customShapes=customShapes.map(cs=>{if(cs.type==='img'&&cs.contours&&!cs._contours){cs._contours=cs.contours.map(c=>c.map(p=>new THREE.Vector2(p[0],p[1])));}return cs;});
+
+/* ============ SCENE ============ */
+const canvas=$('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42,1,0.1,8000);
+camera.up.set(0,0,1);camera.position.set(0,-160,130);
+const controls=new OrbitControls(camera,canvas);
+controls.enableDamping=true;controls.dampingFactor=.08;controls.target.set(0,0,0);
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const klight=new THREE.DirectionalLight(0xffffff,1.15);klight.position.set(70,-90,150);klight.castShadow=true;
+klight.shadow.mapSize.set(2048,2048);Object.assign(klight.shadow.camera,{left:-180,right:180,top:180,bottom:-180,near:1,far:700});scene.add(klight);
+const fl=new THREE.DirectionalLight(0x88aaff,.32);fl.position.set(-90,50,80);scene.add(fl);
+const rl=new THREE.DirectionalLight(0xffaa66,.28);rl.position.set(0,140,60);scene.add(rl);
+const plate=new THREE.Mesh(new THREE.PlaneGeometry(800,800),new THREE.MeshStandardMaterial({color:0x16181f,roughness:.95,metalness:.08}));
+plate.position.z=-0.2;plate.receiveShadow=true;scene.add(plate);
+const grid=new THREE.GridHelper(800,80,0x2a2e3d,0x1e212c);grid.rotation.x=Math.PI/2;scene.add(grid);
+const modelGroup=new THREE.Group();scene.add(modelGroup);
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;if(canvas.width!==Math.floor(w*devicePixelRatio)||canvas.height!==Math.floor(h*devicePixelRatio)){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}}
+(function loop(){requestAnimationFrame(loop);resize();controls.update();renderer.render(scene,camera);})();
+
+/* ============ POLYGON UTILS (verified) ============ */
+function signedArea(p){let a=0;for(let i=0;i<p.length;i++){const u=p[i],v=p[(i+1)%p.length];a+=u.x*v.y-v.x*u.y;}return a/2;}
+function bboxOf(p){let a=1e9,b=1e9,c=-1e9,d=-1e9;for(const q of p){a=Math.min(a,q.x);b=Math.min(b,q.y);c=Math.max(c,q.x);d=Math.max(d,q.y);}return{mnx:a,mny:b,mxx:c,mxy:d};}
+function inBBox(i,o){return i.mnx>=o.mnx-.5&&i.mxx<=o.mxx+.5&&i.mny>=o.mny-.5&&i.mxy<=o.mxy+.5;}
+function pip(pt,poly){let ins=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>pt.y)!==(yj>pt.y))&&(pt.x<(xj-xi)*(pt.y-yi)/(yj-yi)+xi))ins=!ins;}return ins;}
+function orient(p,wantCCW){const ccw=signedArea(p)>0;if(ccw!==wantCCW)p.reverse();return p;}
+function offsetContour(pts,d){
+  const n=pts.length,out=[];
+  for(let i=0;i<n;i++){
+    const pr=pts[(i-1+n)%n],cu=pts[i],nx=pts[(i+1)%n];
+    let e1={x:cu.x-pr.x,y:cu.y-pr.y},e2={x:nx.x-cu.x,y:nx.y-cu.y};
+    const l1=Math.hypot(e1.x,e1.y)||1,l2=Math.hypot(e2.x,e2.y)||1;
+    e1={x:e1.x/l1,y:e1.y/l1};e2={x:e2.x/l2,y:e2.y/l2};
+    const n1={x:e1.y,y:-e1.x},n2={x:e2.y,y:-e2.x};
+    let bi={x:n1.x+n2.x,y:n1.y+n2.y};const bl=Math.hypot(bi.x,bi.y);
+    if(bl<1e-9)bi=n1;else bi={x:bi.x/bl,y:bi.y/bl};
+    const cosA=Math.max(0.3,bi.x*n1.x+bi.y*n1.y);
+    const len=d/cosA;
+    out.push(new THREE.Vector2(cu.x+bi.x*len,cu.y+bi.y*len));
+  }
+  return out;
+}
+
+// contour arrays -> THREE.Shape[] (with holes)
+function contoursToShapes(contours){
+  const infos=contours.filter(c=>c.length>2).map(c=>({pts:c,area:signedArea(c),bb:bboxOf(c)}));
+  infos.sort((a,b)=>Math.abs(b.area)-Math.abs(a.area));
+  const shapes=[];
+  for(const info of infos){
+    let parent=null;
+    for(const s of shapes){if(inBBox(info.bb,s._bb)&&pip(info.pts[0],s._pts)){if(!parent||Math.abs(s._area)<Math.abs(parent._area))parent=s;}}
+    if(parent){const h=new THREE.Path();h.setFromPoints(info.pts);parent.holes.push(h);}
+    else{const sh=new THREE.Shape();sh.setFromPoints(info.pts);sh._pts=info.pts;sh._bb=info.bb;sh._area=info.area;sh.holes=[];shapes.push(sh);}
+  }
+  return shapes;
+}
+
+/* ============ TEXT -> CONTOURS ============ */
+function glyphContours(font,text,size,ls){
+  const path=new opentype.Path();const scale=size/font.unitsPerEm;let x=0;
+  for(const ch of text){const g=font.charToGlyph(ch);path.extend(g.getPath(x,0,size));x+=g.advanceWidth*scale+ls;}
+  const contours=[];let cur=null,last=null;
+  for(const c of path.commands){
+    if(c.type==='M'){cur=[new THREE.Vector2(c.x,-c.y)];contours.push(cur);last={x:c.x,y:-c.y};}
+    else if(c.type==='L'){cur.push(new THREE.Vector2(c.x,-c.y));last={x:c.x,y:-c.y};}
+    else if(c.type==='C'){sampleC(cur,last,{x:c.x1,y:-c.y1},{x:c.x2,y:-c.y2},{x:c.x,y:-c.y});last={x:c.x,y:-c.y};}
+    else if(c.type==='Q'){sampleQ(cur,last,{x:c.x1,y:-c.y1},{x:c.x,y:-c.y});last={x:c.x,y:-c.y};}
+  }
+  return{contours,width:x};
+}
+function sampleC(o,p0,p1,p2,p3,s=10){for(let i=1;i<=s;i++){const t=i/s,u=1-t;o.push(new THREE.Vector2(u*u*u*p0.x+3*u*u*t*p1.x+3*u*t*t*p2.x+t*t*t*p3.x,u*u*u*p0.y+3*u*u*t*p1.y+3*u*t*t*p2.y+t*t*t*p3.y));}}
+function sampleQ(o,p0,p1,p2,s=8){for(let i=1;i<=s;i++){const t=i/s,u=1-t;o.push(new THREE.Vector2(u*u*p0.x+2*u*t*p1.x+t*t*p2.x,u*u*p0.y+2*u*t*p1.y+t*t*p2.y));}}
+
+/* ============ SVG PATH -> CONTOURS ============ */
+function svgPathToContours(d,vs=100){
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');svg.setAttribute('width','0');svg.setAttribute('height','0');
+  svg.style.position='absolute';svg.style.left='-9999px';
+  document.body.appendChild(svg);
+  const subs=d.match(/[Mm][^Mm]*/g)||[d];
+  const contours=[];
+  for(const sub of subs){
+    const tmp=document.createElementNS(ns,'path');tmp.setAttribute('d',sub);svg.appendChild(tmp);
+    let len=0;try{len=tmp.getTotalLength();}catch(e){len=0;}
+    if(len<1){svg.removeChild(tmp);continue;}
+    const N=Math.max(24,Math.min(400,Math.round(len/1.5)));
+    const c=[];for(let i=0;i<N;i++){const pt=tmp.getPointAtLength(len*i/N);c.push(new THREE.Vector2(pt.x,vs-pt.y));}
+    if(c.length>2)contours.push(c);
+    svg.removeChild(tmp);
+  }
+  document.body.removeChild(svg);
+  return contours;
+}
+
+/* ============ IMAGE -> CONTOURS (marching squares on alpha/luminance) ============ */
+function imageToContours(img,vs=100){
+  const max=160;const sc=Math.min(max/img.width,max/img.height,1);
+  const w=Math.max(8,Math.round(img.width*sc)),h=Math.max(8,Math.round(img.height*sc));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
+  const data=ctx.getImageData(0,0,w,h).data;
+  const grid=[];let anyAlpha=false;
+  for(let i=3;i<data.length;i+=4){if(data[i]<250){anyAlpha=true;break;}}
+  for(let y=0;y<h;y++){grid[y]=[];for(let x=0;x<w;x++){const idx=(y*w+x)*4;const a=data[idx+3];const lum=(data[idx]*0.3+data[idx+1]*0.59+data[idx+2]*0.11);grid[y][x]=anyAlpha?(a>128?1:0):(lum<128?1:0);}}
+  const contours=traceContours(grid,w,h);
+  const allpts=contours.flat();if(!allpts.length)return[];
+  const bb=bboxOf(allpts);const sw=bb.mxx-bb.mnx||1,sh2=bb.mxy-bb.mny||1;const s=vs/Math.max(sw,sh2);
+  return contours.map(c=>c.map(p=>new THREE.Vector2((p.x-bb.mnx)*s,(sh2-(p.y-bb.mny))*s)));
+}
+function traceContours(grid,w,h){
+  const visited=Array.from({length:h},()=>new Array(w).fill(false));
+  const contours=[];
+  const get=(x,y)=>x>=0&&y>=0&&x<w&&y<h?grid[y][x]:0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    if(grid[y][x]===1&&get(x-1,y)===0&&!visited[y][x]){
+      const c=mooreTrace(grid,x,y,w,h,get);
+      c.forEach(p=>{if(p.y>=0&&p.y<h&&p.x>=0&&p.x<w)visited[p.y][p.x]=true;});
+      const simp=simplify(c,1.2);if(simp.length>4)contours.push(simp);
+    }
+  }
+  return contours;
+}
+function mooreTrace(grid,sx,sy,w,h,get){
+  const dirs=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  const out=[];let cx=sx,cy=sy,bdir=6,steps=0,max=w*h*4;
+  do{
+    out.push({x:cx,y:cy});let found=false;
+    for(let i=0;i<8;i++){const d=(bdir+i)%8;const nx=cx+dirs[d][0],ny=cy+dirs[d][1];
+      if(get(nx,ny)===1){cx=nx;cy=ny;bdir=(d+5)%8;found=true;break;}}
+    if(!found)break;steps++;
+  }while((cx!==sx||cy!==sy)&&steps<max);
+  return out;
+}
+function simplify(pts,tol){
+  if(pts.length<3)return pts;
+  const keep=[pts[0]];
+  for(let i=1;i<pts.length-1;i++){const a=keep[keep.length-1],b=pts[i],c=pts[i+1];
+    const cross=Math.abs((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x));
+    if(cross>tol||Math.hypot(b.x-a.x,b.y-a.y)>6)keep.push(b);}
+  keep.push(pts[pts.length-1]);return keep;
+}
+
+/* ============ HOLE CONTOUR (circle) ============ */
+function circleContour(cx,cy,r,seg=28){const c=[];for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2;c.push(new THREE.Vector2(cx+Math.cos(a)*r,cy+Math.sin(a)*r));}return c;}
+
+/* ============ BUILD ONE KEYRING ============ */
+function buildKeyring(rawContours){
+  const all=rawContours.flat();if(!all.length)return null;
+  const bb=bboxOf(all);const cx=(bb.mnx+bb.mxx)/2,cy=(bb.mny+bb.mxy)/2;
+  const contours=rawContours.map(c=>c.map(p=>new THREE.Vector2(p.x-cx,p.y-cy)));
+  const w=bb.mxx-bb.mnx,d=bb.mxy-bb.mny;
+
+  const baseW=w+(state.useOutline?state.outlineW*2:0);
+  const baseD=d+(state.useOutline?state.outlineW*2:0);
+  const holeContours=state.holes.map(hl=>circleContour(hl.x*baseW,hl.y*baseD,hl.r));
+
+  // TOP geometry (letters/shape) — holes punched through
+  const topShapes=contoursToShapes(contours.map(c=>c.slice()));
+  attachHoles(topShapes,holeContours);
+  const topGeo=new THREE.ExtrudeGeometry(topShapes,{depth:state.height,bevelEnabled:false,curveSegments:6});
+  topGeo.translate(0,0,state.useOutline?state.baseH:0);
+
+  let baseGeo=null;
+  if(state.useOutline){
+    const shapes=contoursToShapes(contours.map(c=>c.slice()));
+    const baseShapeObjs=[];
+    for(const sh of shapes){
+      const outer=orient(sh._pts.map(p=>new THREE.Vector2(p.x,p.y)),true);
+      const grown=offsetContour(outer,state.outlineW);
+      const s=new THREE.Shape();s.setFromPoints(grown);s.holes=[];s._pts=grown;
+      baseShapeObjs.push(s);
+    }
+    attachHoles(baseShapeObjs,holeContours);
+    baseGeo=new THREE.ExtrudeGeometry(baseShapeObjs,{depth:state.baseH,bevelEnabled:false,curveSegments:6});
+  }
+  return{top:topGeo,base:baseGeo,w:baseW,d:baseD};
+}
+function attachHoles(shapeObjs,holeContours){
+  for(const hc of holeContours){
+    let target=null;
+    for(const s of shapeObjs){const ref=s._pts||s.getPoints(24);if(pip(hc[0],ref)){target=s;break;}}
+    if(target){const hp=new THREE.Path();hp.setFromPoints(hc);target.holes.push(hp);}
+  }
+}
+
+/* ============ RENDER MODEL ============ */
+let lastBuilt=null;
+function rebuild(){
+  if(state.mode==='text'&&!state.font){return;}
+  while(modelGroup.children.length)modelGroup.remove(modelGroup.children[0]);
+  const topMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.topColor),roughness:.55,metalness:.05});
+  const baseMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.baseColor),roughness:.6,metalness:.05});
+
+  let items=[];
+  if(state.mode==='text'){
+    const lines=$('names').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,14);
+    for(const line of lines){
+      const{contours}=glyphContours(state.font,line,state.fontSize,state.letterSpace);
+      if(!contours.length)continue;
+      const kr=buildKeyring(contours);if(kr)items.push({...kr,name:line});
+    }
+  }else{
+    let contours;
+    if(state.shapeTab==='base'){contours=svgPathToContours(SHAPES[state.shapeId]||SHAPES.rounded);}
+    else{const cs=customShapes.find(c=>c.id===state.shapeId);if(cs){contours=cs.type==='svg'?svgPathToContours(cs.data):cs._contours;}}
+    if(contours&&contours.length){
+      const all=contours.flat();const bb=bboxOf(all);const s=state.shapeSize/Math.max(bb.mxx-bb.mnx,bb.mxy-bb.mny);
+      contours=contours.map(c=>c.map(p=>new THREE.Vector2(p.x*s,p.y*s)));
+      const kr=buildKeyring(contours);if(kr)items.push({...kr,name:String(state.shapeId)});
+    }
+  }
+  if(!items.length){updateDims(0,0,0,0);return;}
+
+  // layout: stack vertically with gap, centered
+  const gap=6;let totalH=0,maxW=0;
+  items.forEach(it=>{totalH+=it.d+gap;maxW=Math.max(maxW,it.w);});
+  totalH-=gap;
+  let y=totalH/2;
+  items.forEach(it=>{
+    const g=new THREE.Group();
+    const tm=new THREE.Mesh(it.top,topMat);tm.castShadow=true;tm.userData.role='top';g.add(tm);
+    if(it.base){const bm=new THREE.Mesh(it.base,baseMat);bm.castShadow=true;bm.receiveShadow=true;bm.userData.role='base';g.add(bm);}
+    g.position.set(0,y-it.d/2,0);
+    modelGroup.add(g);
+    y-=it.d+gap;
+  });
+  lastBuilt={items,totalH,maxW};
+  const totalThk=(state.useOutline?state.baseH:0)+state.height;
+  updateDims(maxW,items[0].d,totalThk,items.length);
+}
+function updateDims(w,d,h,n){$('dimW').textContent=w?w.toFixed(1):'–';$('dimD').textContent=d?d.toFixed(1):'–';$('dimH').textContent=h?h.toFixed(1):'–';$('dimN').textContent=n||'–';}
+
+/* ============ STL EXPORT ============ */
+const exporter=new STLExporter();
+function downloadBlob(content,fname,bin){
+  const blob=new Blob([content],{type:bin?'application/octet-stream':'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function exportSTL(mode){
+  if(!lastBuilt||!lastBuilt.items.length){toast('먼저 모델을 만들어 주세요','err');return;}
+  const tag=(state.mode==='text'?(($('names').value.split('\n')[0]||'keyring').trim()):String(state.shapeId)).replace(/[^\w가-힣]/g,'_').slice(0,20)||'keyring';
+  if(mode==='png'){
+    renderer.render(scene,camera);
+    canvas.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=tag+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);},'image/png');
+    toast('PNG 이미지를 저장했습니다');return;
+  }
+  // collect meshes by role into a fresh group (world-space via parent position)
+  const group=new THREE.Group();
+  modelGroup.children.forEach(child=>{
+    const wrap=new THREE.Group();wrap.position.copy(child.position);
+    child.children.forEach(mesh=>{
+      const role=mesh.userData.role;
+      if(mode==='combined'||(mode==='top'&&role==='top')||(mode==='base'&&role==='base')){
+        wrap.add(mesh.clone());
+      }
+    });
+    if(wrap.children.length)group.add(wrap);
+  });
+  if(!group.children.length){toast('내보낼 메시가 없습니다','err');return;}
+  const str=exporter.parse(group,{binary:false});
+  const suffix=mode==='top'?'상단':mode==='base'?'베이스':'통합';
+  downloadBlob(str,`${tag}_${suffix}.stl`,false);
+  toast('STL 다운로드 완료 ✔');
+}
+
+/* ===== UI WIRING ===== */
+// fonts
+const fontGrid=$('fontGrid');
+function buildFontGrid(){
+  fontGrid.innerHTML='';
+  FONTS.forEach(f=>{
+    const b=document.createElement('div');b.className='font-btn'+(state.fontName===f.name?' sel':'');
+    const famCss=f.css?`font-family:'${f.css}'`:'';
+    b.innerHTML=`<span style="${famCss}">${f.glyph}</span><small>${f.label}</small>`;
+    if(f.custom){
+      const del=document.createElement('div');del.className='del';del.textContent='×';del.style.display='grid';
+      del.onclick=ev=>{ev.stopPropagation();const i=FONTS.indexOf(f);if(i>=0)FONTS.splice(i,1);if(state.fontName===f.name&&FONTS.length){setFont(FONTS[0]);}buildFontGrid();toast('폰트를 목록에서 제거했습니다');};
+      b.style.position='relative';b.appendChild(del);
+    }
+    b.onclick=async()=>{await setFont(f);};
+    fontGrid.appendChild(b);
+  });
+}
+async function setFont(f){
+  showLoader(true);
+  try{
+    if(f.font){ // already-parsed (uploaded) font
+      state.font=f.font;
+    }else{
+      const buf=await fetch(f.url).then(r=>r.arrayBuffer());
+      state.font=opentype.parse(buf);f.font=state.font;
+    }
+    state.fontName=f.name;
+    buildFontGrid();
+    rebuild();
+  }catch(e){toast('폰트 로드 실패: '+f.name,'err');console.error(e);}
+  showLoader(false);
+}
+buildFontGrid();
+
+// upload custom font (TTF / OTF / WOFF) directly from device
+$('uploadFont').onclick=()=>$('fontFile').click();
+$('fontFile').onchange=async e=>{
+  const file=e.target.files[0];if(!file){return;}
+  showLoader(true);
+  try{
+    const buf=await file.arrayBuffer();
+    let font;
+    try{font=opentype.parse(buf);}catch(parseErr){
+      console.error(parseErr);
+      toast('이 폰트는 읽을 수 없습니다 (WOFF2는 미지원, TTF/OTF/WOFF를 사용하세요)','err');
+      showLoader(false);e.target.value='';return;
+    }
+    const raw=(file.name||'My Font').replace(/\.(ttf|otf|woff|woff2)$/i,'');
+    const name='user:'+raw+':'+Date.now();
+    // build a glyph preview using two letters from the font itself
+    const f={name,label:raw.slice(0,10),glyph:'Ag',css:null,font,custom:true};
+    FONTS.push(f);
+    await setFont(f);
+    toast('내 폰트를 추가했습니다 ✔');
+  }catch(err){console.error(err);toast('폰트 파일 처리 중 오류','err');}
+  showLoader(false);e.target.value='';
+};
+function showLoader(b){$('loader').classList.toggle('hidden',!b);}
+
+// colors
+function buildSwatches(containerId,key,customId){
+  const c=$(containerId);
+  PALETTE.forEach(col=>{const s=document.createElement('div');s.className='swatch'+(state[key]===col?' sel':'');s.style.background=col;
+    s.onclick=()=>{state[key]=col;$(customId).value=col;c.querySelectorAll('.swatch').forEach(x=>x.classList.remove('sel'));s.classList.add('sel');rebuild();};c.appendChild(s);});
+}
+buildSwatches('topColors','topColor','topCustom');
+buildSwatches('baseColors','baseColor','baseCustom');
+$('topCustom').oninput=e=>{state.topColor=e.target.value;$('topColors').querySelectorAll('.swatch').forEach(x=>x.classList.remove('sel'));rebuild();};
+$('baseCustom').oninput=e=>{state.baseColor=e.target.value;$('baseColors').querySelectorAll('.swatch').forEach(x=>x.classList.remove('sel'));rebuild();};
+
+// shapes
+function buildBaseShapes(){
+  const g=$('shapeGridBase');g.innerHTML='';
+  SHAPE_ORDER.forEach(id=>{const cell=document.createElement('div');cell.className='shape-cell'+(state.shapeId===id?' sel':'');
+    cell.innerHTML=`<svg viewBox="0 0 100 100"><path d="${SHAPES[id]}"/></svg>`;
+    cell.onclick=()=>{state.shapeId=id;state.shapeTab='base';markShapeSel();rebuild();};g.appendChild(cell);});
+}
+function buildCustomShapes(){
+  const g=$('shapeGridCustom');g.innerHTML='';
+  if(!customShapes.length){g.innerHTML='<div style="grid-column:1/-1;color:var(--muted);font-size:12px;text-align:center;padding:14px 0">아직 추가한 모양이 없습니다</div>';return;}
+  customShapes.forEach(cs=>{const cell=document.createElement('div');cell.className='shape-cell custom'+(state.shapeId===cs.id?' sel':'');
+    cell.innerHTML=cs.type==='svg'?`<svg viewBox="0 0 100 100"><path d="${cs.path}"/></svg>`:`<img src="${cs.thumb}">`;
+    const del=document.createElement('div');del.className='del';del.textContent='×';
+    del.onclick=ev=>{ev.stopPropagation();customShapes=customShapes.filter(x=>x.id!==cs.id);saveCustom(customShapes);buildCustomShapes();toast('모양을 삭제했습니다');};
+    cell.appendChild(del);
+    cell.onclick=()=>{state.shapeId=cs.id;state.shapeTab='custom';markShapeSel();rebuild();};g.appendChild(cell);});
+}
+function markShapeSel(){
+  buildBaseShapes();buildCustomShapes();
+}
+buildBaseShapes();buildCustomShapes();
+
+document.querySelectorAll('.shape-tab').forEach(t=>t.onclick=()=>switchToShapeTab(t.dataset.stab));
+function switchToShapeTab(tab){
+  state.shapeTab=tab;
+  document.querySelectorAll('.shape-tab').forEach(x=>x.classList.toggle('sel',x.dataset.stab===tab));
+  $('shapeGridBase').style.display=tab==='base'?'grid':'none';
+  $('customWrap').style.display=tab==='custom'?'block':'none';
+}
+
+// upload custom shape
+$('uploadShape').onclick=()=>$('shapeFile').click();
+$('shapeFile').onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  showLoader(true);
+  try{
+    if(file.name.toLowerCase().endsWith('.svg')||file.type==='image/svg+xml'){
+      const txt=await file.text();
+      const doc=new DOMParser().parseFromString(txt,'image/svg+xml');
+      const paths=[...doc.querySelectorAll('path')];
+      let d=paths.map(p=>p.getAttribute('d')).filter(Boolean).join(' ');
+      if(!d){toast('SVG에서 path를 찾지 못했습니다','err');showLoader(false);e.target.value='';return;}
+      const contours=svgPathToContours(d,100);
+      if(!contours.length){toast('SVG 경로를 해석하지 못했습니다','err');showLoader(false);e.target.value='';return;}
+      const id='c'+Date.now();
+      customShapes.push({id,type:'svg',path:d,data:d});
+      saveCustom(customShapes);buildCustomShapes();
+      state.shapeId=id;markShapeSel();switchToShapeTab('custom');rebuild();
+      toast('SVG 모양을 추가했습니다 ✔');showLoader(false);e.target.value='';
+    }else{
+      const img=new Image();
+      img.onload=()=>{
+        try{
+          const contours=imageToContours(img,100);
+          if(!contours.length){toast('이미지에서 외곽선을 찾지 못했습니다','err');showLoader(false);return;}
+          const tcv=document.createElement('canvas');tcv.width=64;tcv.height=64;const tctx=tcv.getContext('2d');
+          const sc=Math.min(64/img.width,64/img.height);tctx.drawImage(img,(64-img.width*sc)/2,(64-img.height*sc)/2,img.width*sc,img.height*sc);
+          const id='c'+Date.now();
+          const ser=contours.map(c=>c.map(p=>[Math.round(p.x*10)/10,Math.round(p.y*10)/10]));
+          const entry={id,type:'img',contours:ser,thumb:tcv.toDataURL('image/png'),_contours:contours};
+          customShapes.push(entry);
+          saveCustom(customShapes);
+          buildCustomShapes();
+          state.shapeId=id;markShapeSel();switchToShapeTab('custom');rebuild();
+          toast('이미지 모양을 추가했습니다 ✔');
+        }catch(err){console.error(err);toast('이미지 처리 중 오류','err');}
+        showLoader(false);
+      };
+      img.onerror=()=>{toast('이미지 로드 실패','err');showLoader(false);};
+      img.src=URL.createObjectURL(file);
+      e.target.value='';return;
+    }
+  }catch(err){console.error(err);toast('파일 처리 중 오류','err');showLoader(false);e.target.value='';}
+};
+
+// sliders / inputs
+function bindSlider(id,key,fmt=v=>v){const el=$(id),v=$(id+'V');el.value=state[key];v.textContent=fmt(state[key]);
+  el.oninput=()=>{state[key]=parseFloat(el.value);v.textContent=fmt(state[key]);rebuild();};}
+bindSlider('fontSize','fontSize');
+bindSlider('letterSpace','letterSpace');
+bindSlider('shapeSize','shapeSize');
+bindSlider('height','height',v=>v.toFixed(1));
+bindSlider('outlineW','outlineW',v=>v.toFixed(1));
+bindSlider('baseH','baseH',v=>v.toFixed(1));
+
+$('names').oninput=()=>{const n=$('names').value.split('\n').filter(s=>s.trim()).length;$('nameCount').textContent=`${n} / 14`;rebuild();};
+$('useOutline').onchange=e=>{state.useOutline=e.target.checked;$('outlineOpts').style.opacity=e.target.checked?'1':'.4';$('outlineOpts').style.pointerEvents=e.target.checked?'auto':'none';rebuild();};
+
+// mode toggle
+document.querySelectorAll('.mode-toggle button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.mode-toggle button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+  state.mode=b.dataset.mode;
+  $('sec-text').style.display=state.mode==='text'?'block':'none';
+  $('sec-font').style.display=state.mode==='text'?'block':'none';
+  $('sec-shape').style.display=state.mode==='shape'?'block':'none';
+  if(state.mode==='shape')$('sec-shape').classList.remove('collapsed');
+  rebuild();
+});
+$('sec-shape').style.display='none';
+
+// section collapse
+document.querySelectorAll('.sec-head').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('collapsed'));
+
+// holes UI
+function renderHoleList(){
+  const list=$('holeList');list.innerHTML='';
+  state.holes.forEach((hl,i)=>{
+    const d=document.createElement('div');d.className='hole-item';
+    d.innerHTML=`<div class="hh"><span>구멍 ${i+1}</span><button data-del="${i}">×</button></div>
+      <div class="mini-row"><span>가로 X</span><input type="range" min="-0.5" max="0.5" step="0.01" value="${hl.x}" data-h="${i}" data-k="x"></div>
+      <div class="mini-row"><span>세로 Y</span><input type="range" min="-0.5" max="0.5" step="0.01" value="${hl.y}" data-h="${i}" data-k="y"></div>
+      <div class="mini-row"><span>지름 ⌀</span><input type="range" min="1" max="6" step="0.1" value="${hl.r}" data-h="${i}" data-k="r"></div>`;
+    list.appendChild(d);
+  });
+  list.querySelectorAll('input[type=range]').forEach(inp=>inp.oninput=()=>{const i=+inp.dataset.h,k=inp.dataset.k;state.holes[i][k]=parseFloat(inp.value);rebuild();});
+  list.querySelectorAll('button[data-del]').forEach(btn=>btn.onclick=()=>{state.holes.splice(+btn.dataset.del,1);renderHoleList();rebuild();});
+}
+$('addHole').onclick=()=>{state.holes.push({x:0,y:0,r:2.3});renderHoleList();rebuild();};
+renderHoleList();
+
+// view buttons
+$('resetView').onclick=()=>{camera.position.set(0,-160,130);controls.target.set(0,0,0);};
+$('topView').onclick=()=>{camera.position.set(0,0,220);controls.target.set(0,0,0);};
+
+// export menu
+$('exportBtn').onclick=()=>$('expMenu').classList.toggle('show');
+document.addEventListener('click',e=>{if(!e.target.closest('#exportBtn')&&!e.target.closest('#expMenu'))$('expMenu').classList.remove('show');});
+$('expMenu').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  const m=b.dataset.exp;$('expMenu').classList.remove('show');
+  if(m==='combined')exportSTL('combined');
+  else if(m==='split'){exportSTL('top');setTimeout(()=>exportSTL('base'),500);}
+  else if(m==='png')exportSTL('png');
+});
+
+// init: load first font
+setFont(FONTS[0]);
+
+</script>
+</body>
+</html>
