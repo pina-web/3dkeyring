@@ -160,12 +160,13 @@ input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-rad
     <div class="section" data-sec>
       <div class="sec-head"><div class="sec-num">5</div><div class="sec-title">두께 & 외곽선</div><div class="sec-chev">▾</div></div>
       <div class="sec-body">
-        <label class="fld">상단(글자/모양) 높이</label><div class="slider-row"><input type="range" id="height" min="0.6" max="8" value="1.6" step="0.1"><div class="slider-val"><span id="heightV">1.6</span>mm</div></div>
+        <label class="fld">상단(글자/모양) 높이</label><div class="slider-row"><input type="range" id="height" min="0.6" max="8" value="1.0" step="0.1"><div class="slider-val"><span id="heightV">1.0</span>mm</div></div>
         <div class="toggle"><span class="lbl">외곽선(베이스) 만들기</span><label class="sw"><input type="checkbox" id="useOutline" checked><span class="track"></span></label></div>
         <div id="outlineOpts">
           <label class="fld">외곽선 두께(폭)</label><div class="slider-row"><input type="range" id="outlineW" min="0.6" max="6" value="2" step="0.1"><div class="slider-val"><span id="outlineWV">2.0</span>mm</div></div>
-          <label class="fld">베이스 높이</label><div class="slider-row"><input type="range" id="baseH" min="0.6" max="6" value="2" step="0.1"><div class="slider-val"><span id="baseHV">2.0</span>mm</div></div>
+          <label class="fld">베이스 높이</label><div class="slider-row"><input type="range" id="baseH" min="0.6" max="6" value="1.6" step="0.1"><div class="slider-val"><span id="baseHV">1.6</span>mm</div></div>
         </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.6">⏱ <b style="color:var(--txt)">출력 시간 줄이기</b>: 높이를 낮출수록 빨라집니다(글자 1.0 / 베이스 1.6mm 권장). 슬라이서에서는 레이어 높이 0.28mm, 인필 10~15%, 상·하판 2~3겹으로 설정하면 더 빨라집니다.</p>
       </div>
     </div>
     <div class="section" data-sec>
@@ -63966,7 +63967,7 @@ const state={
   mode:'text', font:null, fontName:'Bebas',
   fontSize:28, letterSpace:0,
   shapeId:'rounded', shapeSize:45, shapeTab:'base',
-  height:1.6, useOutline:true, outlineW:2, baseH:2,
+  height:1.0, useOutline:true, outlineW:2, baseH:1.6,
   topColor:'#ffffff', baseColor:'#d12c2c',
   holes:[{x:-0.46,y:0,r:4,outline:true}],
 };
@@ -64338,10 +64339,13 @@ function buildKeyring(rawContours){
 }
 // weld duplicate vertices AND drop degenerate (zero-area) triangles so the mesh
 // is a closed watertight manifold solid (fixes Bambu non-manifold-edge errors).
+// NOTE: we do NOT compute averaged vertex normals — averaging tilts the flat top
+// face's edge normals and produces wavy shading. Flat shading (per-face normals)
+// in the preview material keeps the top perfectly flat.
 function manifold(geo){
   geo.deleteAttribute('normal');geo.deleteAttribute('uv');
   let m;try{m=mergeVertices(geo,1e-4);}catch(e){m=geo;}
-  if(!m.index){m.computeVertexNormals();return m;}
+  if(!m.index){return m;}
   const idx=m.index.array,pos=m.attributes.position;
   const A=new THREE.Vector3(),B=new THREE.Vector3(),C=new THREE.Vector3(),AB=new THREE.Vector3(),AC=new THREE.Vector3(),X=new THREE.Vector3();
   const keep=[];
@@ -64355,7 +64359,6 @@ function manifold(geo){
   }
   m.setIndex(keep);
   try{m=mergeVertices(m,1e-4);}catch(e){}
-  m.computeVertexNormals();
   return m;
 }
 function attachHoles(shapeObjs,holeContours){
@@ -64374,8 +64377,8 @@ let placementInit=false;       // becomes true after first auto-layout so we don
 function rebuild(){
   if(state.mode==='text'&&!state.font){return;}
   while(modelGroup.children.length){const c=modelGroup.children[0];modelGroup.remove(c);}
-  const topMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.topColor),roughness:.55,metalness:.05});
-  const baseMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.baseColor),roughness:.6,metalness:.05});
+  const topMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.topColor),roughness:.5,metalness:.04,flatShading:true});
+  const baseMat=new THREE.MeshStandardMaterial({color:new THREE.Color(state.baseColor),roughness:.6,metalness:.04,flatShading:true});
 
   let items=[];
   if(state.mode==='text'){
