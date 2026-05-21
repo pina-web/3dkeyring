@@ -196,8 +196,8 @@ input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-rad
     <div class="loader hidden" id="loader"><div><div class="spin"></div>모델 생성 중…</div></div>
     <canvas id="canvas"></canvas>
     <div class="exp-menu" id="expMenu">
-      <button data-exp="3mf">🎨 3MF (색상 그대로) <small>뱀부 스튜디오에서 열면 색이 적용됨 · 권장</small></button>
-      <button data-exp="split">색상별 분리 STL <small>상단 / 베이스 따로 · 슬라이서에서 색 지정</small></button>
+      <button data-exp="split">🎨 색상별 분리 STL (권장) <small>글자+베이스+사용법을 ZIP 하나로 · 함께 불러와 색 지정</small></button>
+      <button data-exp="3mf">3MF (색상 자동) <small>뱀부에서 색이 미리 적용됨 · 버전에 따라 다를 수 있음</small></button>
       <button data-exp="combined">통합 STL 1개 <small>판 위 배치 그대로 · 단색 출력용</small></button>
       <button data-exp="zip">키링별 STL 모음 (ZIP) <small>각 키링을 개별 파일로 한 번에</small></button>
       <button data-exp="png">현재 화면 PNG <small>참고용 이미지</small></button>
@@ -7870,12 +7870,12 @@ const state={
 };
 
 const FONTS=[
-  {name:'Pacifico',label:'Script',glyph:'Aa',css:'Pacifico',url:'https://cdn.jsdelivr.net/fontsource/fonts/pacifico@latest/latin-400-normal.ttf'},
-  {name:'Lobster',label:'Lobster',glyph:'Aa',css:'Lobster',url:'https://cdn.jsdelivr.net/fontsource/fonts/lobster@latest/latin-400-normal.ttf'},
-  {name:'Bebas',label:'Tall',glyph:'AB',css:'Bebas Neue',url:'https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.ttf'},
-  {name:'Righteous',label:'Round',glyph:'Aa',css:'Righteous',url:'https://cdn.jsdelivr.net/fontsource/fonts/righteous@latest/latin-400-normal.ttf'},
-  {name:'Fredoka',label:'Fredoka',glyph:'Aa',css:'Fredoka',url:'https://cdn.jsdelivr.net/fontsource/fonts/fredoka@latest/latin-600-normal.ttf'},
-  {name:'Grotesk',label:'Modern',glyph:'Aa',css:'Space Grotesk',url:'https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-600-normal.ttf'},
+  {name:'Pacifico',label:'Script',glyph:'Aa',css:'Pacifico',url:'https://cdn.jsdelivr.net/fontsource/fonts/pacifico@latest/latin-400-normal.woff'},
+  {name:'Lobster',label:'Lobster',glyph:'Aa',css:'Lobster',url:'https://cdn.jsdelivr.net/fontsource/fonts/lobster@latest/latin-400-normal.woff'},
+  {name:'Bebas',label:'Tall',glyph:'AB',css:'Bebas Neue',url:'https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.woff'},
+  {name:'Righteous',label:'Round',glyph:'Aa',css:'Righteous',url:'https://cdn.jsdelivr.net/fontsource/fonts/righteous@latest/latin-400-normal.woff'},
+  {name:'Fredoka',label:'Fredoka',glyph:'Aa',css:'Fredoka',url:'https://cdn.jsdelivr.net/fontsource/fonts/fredoka@latest/latin-600-normal.woff'},
+  {name:'Grotesk',label:'Modern',glyph:'Aa',css:'Space Grotesk',url:'https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-600-normal.woff'},
   // ---- 저작권 프리(오픈 라이선스) 한글 폰트 — opentype.js가 읽을 수 있는 woff 사용 ----
   {name:'NotoKR',label:'본고딕',glyph:'가나',css:'Noto Sans KR',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-kr@latest/korean-400-normal.woff'},
   {name:'NanumGothic',label:'나눔고딕',glyph:'가나',css:'Nanum Gothic',kr:true,url:'https://cdn.jsdelivr.net/fontsource/fonts/nanum-gothic@latest/korean-700-normal.woff'},
@@ -8230,12 +8230,27 @@ function buildKeyring(rawContours){
   }
   return{top:topGeo,base:baseGeo,w:baseW,d:baseD};
 }
-// weld duplicate vertices so faces share edges -> closed manifold solid (kills non-manifold edge errors)
+// weld duplicate vertices AND drop degenerate (zero-area) triangles so the mesh
+// is a closed watertight manifold solid (fixes Bambu non-manifold-edge errors).
 function manifold(geo){
   geo.deleteAttribute('normal');geo.deleteAttribute('uv');
-  let g;try{g=mergeVertices(geo,1e-4);}catch(e){g=geo;}
-  g.computeVertexNormals();
-  return g;
+  let m;try{m=mergeVertices(geo,1e-4);}catch(e){m=geo;}
+  if(!m.index){m.computeVertexNormals();return m;}
+  const idx=m.index.array,pos=m.attributes.position;
+  const A=new THREE.Vector3(),B=new THREE.Vector3(),C=new THREE.Vector3(),AB=new THREE.Vector3(),AC=new THREE.Vector3(),X=new THREE.Vector3();
+  const keep=[];
+  for(let i=0;i<idx.length;i+=3){
+    const a=idx[i],b=idx[i+1],c=idx[i+2];
+    if(a===b||b===c||a===c)continue;
+    A.fromBufferAttribute(pos,a);B.fromBufferAttribute(pos,b);C.fromBufferAttribute(pos,c);
+    AB.subVectors(B,A);AC.subVectors(C,A);X.crossVectors(AB,AC);
+    if(0.5*X.length()<1e-6)continue;
+    keep.push(a,b,c);
+  }
+  m.setIndex(keep);
+  try{m=mergeVertices(m,1e-4);}catch(e){}
+  m.computeVertexNormals();
+  return m;
 }
 }
 function attachHoles(shapeObjs,holeContours){
@@ -8365,10 +8380,42 @@ function exportSTLCombined(){
 }
 function exportSTLSplit(){
   if(!lastBuilt){toast('먼저 모델을 만들어 주세요','err');return;}
+  if(!state.useOutline){
+    // no base -> split is meaningless; just give the single (top) STL
+    const only=placedGroup('top');
+    downloadBlob(exporter.parse(only,{binary:false}),projectTag()+'.stl',false);
+    toast('외곽선이 꺼져 있어 단일 STL로 저장했습니다','err');return;
+  }
   const top=placedGroup('top');
-  downloadBlob(exporter.parse(top,{binary:false}),projectTag()+'_상단.stl',false);
-  if(state.useOutline){const base=placedGroup('base');if(base.children.length)setTimeout(()=>downloadBlob(exporter.parse(base,{binary:false}),projectTag()+'_베이스.stl',false),400);}
-  toast('색상별 분리 STL 다운로드 ✔');
+  const base=placedGroup('base');
+  if(!top.children.length||!base.children.length){toast('내보낼 메시가 없습니다','err');return;}
+  const tag=projectTag();
+  // bundle BOTH into one ZIP so the browser never blocks a second download
+  // and the two parts keep identical coordinates (drop them together in the slicer)
+  const files={};
+  files[`${tag}_1_글자.stl`]=fflate.strToU8(exporter.parse(top,{binary:false}));
+  files[`${tag}_2_베이스.stl`]=fflate.strToU8(exporter.parse(base,{binary:false}));
+  files['사용법.txt']=fflate.strToU8(
+`KEYFORGE 색상별 분리 STL 사용법 (뱀부 스튜디오 / 오르카 슬라이서)
+
+이 ZIP 안에는 두 개의 STL이 들어 있습니다.
+  - ${tag}_1_글자.stl   : 글자(상단) 부분  -> 색 1
+  - ${tag}_2_베이스.stl : 베이스(외곽선) 부분 -> 색 2
+두 파일은 좌표가 정확히 같으므로 함께 불러오면 딱 포개집니다.
+
+[방법]
+1) 두 STL 파일을 모두 선택해서 뱀부 스튜디오 화면에 끌어다 놓습니다.
+2) "여러 객체를 하나의 객체로 불러올까요?" 라고 물으면 → 예(Yes) 를 누릅니다.
+   (이렇게 해야 두 부품이 한 키링으로 합쳐지고 위치가 맞습니다.)
+3) 왼쪽 위 모드를 [전역] 에서 [객체] 로 바꿉니다.
+4) 객체 목록에서 합쳐진 객체를 펼치면 글자/베이스 두 부품이 보입니다.
+5) 각 부품을 클릭하고 숫자 키 1, 2 를 눌러 원하는 필라멘트(색)를 지정합니다.
+   - 글자 부품 = 1번 색, 베이스 부품 = 2번 색
+6) 슬라이스 후 출력하면 두 가지 색으로 나옵니다.
+   (AMS가 없으면 출력 중 필라멘트 수동 교체 알림이 뜹니다.)
+`);
+  downloadBlob(fflate.zipSync(files,{level:6}),tag+'_색상분리.zip',true);
+  toast('색상별 분리 STL (ZIP) 다운로드 ✔ · 사용법 포함');
 }
 // each keyring as its own STL, all zipped together
 function exportSTLZip(){
@@ -8398,10 +8445,10 @@ function meshObjectXML(geom,matrix,objId){
 function export3MF(){
   if(!lastBuilt){toast('먼저 모델을 만들어 주세요','err');return;}
   const topHex=state.topColor.toUpperCase(), baseHex=state.baseColor.toUpperCase();
-  // Build, for each keyring (group), a PARENT object whose components reference its part meshes.
-  // model_settings then assigns extruder per part (top=1, base=2) -> two changeable colors in Bambu.
+  // Each keyring -> one assembled object (component group) holding top/base mesh objects.
+  // model_settings assigns extruder per part so Bambu shows two changeable colors.
   const meshObjs=[];      // {id, xml}
-  const parents=[];       // {id, parts:[{meshId,ext,name}]}
+  const parents=[];       // {id, parts:[{meshId,ext,name}], item position}
   let nextId=1;
   modelGroup.children.forEach((child,gi)=>{
     child.updateMatrixWorld(true);
@@ -8417,35 +8464,60 @@ function export3MF(){
   });
   if(!meshObjs.length){toast('내보낼 메시가 없습니다','err');return;}
 
+  const idMtx='1 0 0 0 1 0 0 0 1 0 0 0';
   const resourceXML=[
     ...meshObjs.map(o=>'  '+o.xml),
-    ...parents.map(p=>`  <object id="${p.id}" type="model"><components>${p.parts.map(pt=>`<component objectid="${pt.meshId}"/>`).join('')}</components></object>`)
+    ...parents.map(p=>`  <object id="${p.id}" type="model"><components>${p.parts.map(pt=>`<component objectid="${pt.meshId}" transform="${idMtx}"/>`).join('')}</components></object>`)
   ].join('\n');
+  const now=new Date().toISOString().slice(0,10);
   const modelXML=`<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">
+ <metadata name="Application">KEYFORGE</metadata>
+ <metadata name="BambuStudio:3mfVersion">1</metadata>
+ <metadata name="Copyright"></metadata>
+ <metadata name="CreationDate">${now}</metadata>
+ <metadata name="Title">${projectTag()}</metadata>
  <resources>
 ${resourceXML}
  </resources>
  <build>
-${parents.map(p=>`  <item objectid="${p.id}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>`).join('\n')}
+${parents.map(p=>`  <item objectid="${p.id}" transform="${idMtx}" printable="1"/>`).join('\n')}
  </build>
 </model>`;
   const contentTypes=`<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`;
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+<Default Extension="png" ContentType="image/png"/>
+</Types>`;
   const rels=`<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`;
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
+</Relationships>`;
+  // model_settings: parts carry matrix + extruder; this is what Bambu reads for per-part filament
   const modelSettings=`<?xml version="1.0" encoding="UTF-8"?>
 <config>
-${parents.map(p=>`<object id="${p.id}"><metadata key="name" value="${p.name}"/>
-${p.parts.map(pt=>`  <part id="${pt.meshId}" subtype="normal_part"><metadata key="name" value="${pt.name}"/><metadata key="extruder" value="${pt.ext}"/></part>`).join('\n')}
-</object>`).join('\n')}
+${parents.map(p=>`  <object id="${p.id}">
+    <metadata key="name" value="${p.name}"/>
+    <metadata key="extruder" value="1"/>
+${p.parts.map(pt=>`    <part id="${pt.meshId}" subtype="normal_part">
+      <metadata key="name" value="${pt.name}"/>
+      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
+      <metadata key="source_file" value="${projectTag()}.3mf"/>
+      <metadata key="extruder" value="${pt.ext}"/>
+    </part>`).join('\n')}
+  </object>`).join('\n')}
 </config>`;
+  // project settings: filament palette + slots so colors show immediately
   const project={
     filament_colour:[topHex,baseHex],
     filament_type:["PLA","PLA"],
-    filament_settings_id:["Generic PLA","Generic PLA"],
-    filament_ids:["GFL99","GFL99"],
-    version:"1"
+    filament_settings_id:["Bambu PLA Basic @BBL A1","Bambu PLA Basic @BBL A1"],
+    filament_ids:["GFA00","GFA00"],
+    nozzle_diameter:["0.4"],
+    printer_settings_id:["Bambu Lab A1 0.4 nozzle"],
+    print_settings_id:["0.20mm Standard @BBL A1"],
+    version:"1.9.0.0"
   };
   const files={
     '[Content_Types].xml':fflate.strToU8(contentTypes),
@@ -8456,6 +8528,7 @@ ${p.parts.map(pt=>`  <part id="${pt.meshId}" subtype="normal_part"><metadata key
   };
   const zipped=fflate.zipSync(files,{level:6});
   downloadBlob(zipped,projectTag()+'.3mf',true);
+  toast('3MF 다운로드 ✔ (글자·베이스 색 분리)');
   toast('3MF 다운로드 ✔ (글자·베이스 색 분리)');
 }
 
@@ -8484,14 +8557,30 @@ async function setFont(f){
     if(f.font){ // already-parsed (uploaded) font
       state.font=f.font;
     }else{
-      const buf=await fetch(f.url).then(r=>r.arrayBuffer());
+      const res=await fetch(f.url);
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const buf=await res.arrayBuffer();
       state.font=opentype.parse(buf);f.font=state.font;
     }
     state.fontName=f.name;
     buildFontGrid();
     rebuild();
-  }catch(e){toast('폰트 로드 실패: '+f.name,'err');console.error(e);}
+  }catch(e){
+    console.error('font load failed:',f.name,e);
+    toast('폰트 로드 실패: '+f.label,'err');
+  }
   showLoader(false);
+}
+// load the first font that succeeds (so a single dead CDN entry never leaves the app empty)
+async function loadFirstAvailableFont(){
+  for(const f of FONTS){
+    try{
+      const res=await fetch(f.url);if(!res.ok)continue;
+      const buf=await res.arrayBuffer();state.font=opentype.parse(buf);f.font=state.font;
+      state.fontName=f.name;buildFontGrid();rebuild();showLoader(false);return;
+    }catch(e){/* try next */}
+  }
+  showLoader(false);toast('폰트를 불러오지 못했습니다. 인터넷 연결을 확인하거나 내 폰트를 올려주세요','err');
 }
 buildFontGrid();
 
@@ -8698,8 +8787,9 @@ $('expMenu').querySelectorAll('button').forEach(b=>b.onclick=()=>{
   else if(m==='png')exportPNG();
 });
 
-// init: load first font
-setFont(FONTS[0]);
+// init: load first font that's reachable
+showLoader(true);
+loadFirstAvailableFont();
 
 </script>
 </body>
