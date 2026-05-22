@@ -155,6 +155,11 @@ input[type=color]{width:40px;height:32px;border:1px solid var(--line);border-rad
           <input type="file" id="shapeFile" accept=".svg,image/png,image/jpeg" hidden>
         </div>
         <label class="fld">도형 크기</label><div class="slider-row"><input type="range" id="shapeSize" min="15" max="90" value="45" step="1"><div class="slider-val"><span id="shapeSizeV">45</span>mm</div></div>
+        <label class="fld" style="margin-top:10px">도형 위 글자 (한 줄에 하나씩 · 비우면 글자 없음)</label>
+        <textarea id="shapeText" rows="3" placeholder="민준&#10;서연&#10;지호" style="width:100%;box-sizing:border-box;background:var(--panel2,#1a1d27);border:1px solid var(--bd,#2a2e3a);border-radius:8px;padding:9px 11px;color:var(--txt,#e8eaf0);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+        <p style="font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.5">여러 줄을 입력하면 선택한 도형이 줄 수만큼 한 번에 생성됩니다. 글자는 위 폰트를 따르며 도형 위에 돌출되어 색을 따로 지정할 수 있습니다.</p>
+        <button id="addToPlate" style="width:100%;margin-top:10px;background:var(--accent,#ff5c3a);color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer">＋ 판에 추가 (여러 줄이면 여러 개)</button>
+        <div id="plateList" style="margin-top:12px"></div>
       </div>
     </div>
     <div class="section" data-sec>
@@ -238,16 +243,20 @@ window.__kfDiag=function(){
   d.push('3D 엔진 로드: '+(window.__KF_IMPORTS_OK?'성공':'실패 — 모듈 변환/로드 문제'));
   return d.join('\n');
 };
+window.__kfErr='';
 setTimeout(function(){
   if(!window.__KF_READY){
     var el=document.getElementById('bootError');
     var dg=document.getElementById('bootDiag');
-    if(dg)dg.textContent=window.__kfDiag();
+    if(dg)dg.textContent=window.__kfDiag()+(window.__kfErr?('\n\n'+window.__kfErr):'');
     if(el)el.style.display='block';
   }
 },6000);
 window.addEventListener('error',function(e){
-  if(!window.__KF_READY && e && e.message){var dg=document.getElementById('bootDiag');if(dg)dg.textContent=(dg.textContent?dg.textContent+'\n':'')+'오류: '+e.message;}
+  if(!window.__KF_READY && e && e.message){window.__kfErr=(window.__kfErr?window.__kfErr+'\n':'')+'오류: '+e.message;var dg=document.getElementById('bootDiag');if(dg)dg.textContent=window.__kfDiag()+'\n\n'+window.__kfErr;}
+});
+window.addEventListener('unhandledrejection',function(e){
+  if(!window.__KF_READY && e){var msg=(e.reason&&e.reason.message)||e.reason||'unknown';window.__kfErr=(window.__kfErr?window.__kfErr+'\n':'')+'비동기 오류: '+msg;}
 });
 </script>
 <script>
@@ -63970,6 +63979,7 @@ const state={
   height:1.0, useOutline:true, outlineW:2, baseH:1.6,
   topColor:'#ffffff', baseColor:'#d12c2c',
   holes:[{x:-0.46,y:0,r:4,outline:true}],
+  plate:[],  // composed items added to the bed: {id, shapeId, tab, size, text}
 };
 
 const FONTS=[
@@ -64034,7 +64044,28 @@ customShapes=customShapes.map(cs=>{if(cs.type==='img'&&cs.contours&&!cs._contour
 
 /* ============ SCENE ============ */
 const canvas=$('canvas');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+}catch(e){
+  // WebGL unavailable (hardware acceleration off, or blocked) — show a specific message
+  window.__KF_READY=true; // stop the generic CDN watchdog from also firing
+  const el=document.getElementById('bootError');
+  const dg=document.getElementById('bootDiag');
+  const banner=document.querySelector('#bootError div');
+  if(banner){
+    banner.innerHTML='<div style="font-size:22px;font-weight:700;color:#ff5c3a;margin-bottom:14px">⚠ 3D 화면을 열 수 없습니다 (WebGL)</div>'
+      +'<p style="line-height:1.7;font-size:15px;color:#c9cde0">이 브라우저에서 <b>그래픽 가속(WebGL)</b>이 꺼져 있어 3D 미리보기를 표시할 수 없습니다.</p>'
+      +'<ul style="line-height:1.9;font-size:14px;color:#a9aec4;margin:14px 0 0 18px">'
+      +'<li>브라우저 설정에서 <b>하드웨어 가속 사용</b>을 켜고 다시 열어주세요.<br>(엣지: 설정 → 시스템 및 성능 → "사용 가능한 경우 하드웨어 가속 사용" 켜기)</li>'
+      +'<li>크롬/엣지 최신 버전에서 열어보세요.</li>'
+      +'<li>다른 브라우저(크롬·엣지·파이어폭스)로 열어보세요.</li>'
+      +'</ul>'
+      +'<button onclick="location.reload()" style="margin-top:22px;background:#42d6a4;color:#04140d;border:none;border-radius:10px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer">새로고침</button>';
+  }
+  if(el)el.style.display='block';
+  throw e;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const scene=new THREE.Scene();
@@ -64128,12 +64159,12 @@ canvas.addEventListener('pointercancel',endDrag);
 function autoArrange(){
   if(!lastBuilt)return;
   const items=lastBuilt.items.slice();
-  const gap=6, half=plateSize/2;
+  const gap=10, half=plateSize/2;   // 10mm gap so separate keyrings never fuse in the slicer
   // sort tall-first, simple shelf packing
-  let x=-half+5, y=half-5, rowH=0;
+  let x=-half+6, y=half-6, rowH=0;
   for(const it of items){
     const w=it.w,h=it.d;
-    if(x+w>half-5){x=-half+5;y-=rowH+gap;rowH=0;}
+    if(x+w>half-6){x=-half+6;y-=rowH+gap;rowH=0;}
     const pl=placement[it.name]||(placement[it.name]={});
     pl.x=x+w/2;pl.y=y-h/2;pl.rot=0;
     x+=w+gap;rowH=Math.max(rowH,h);
@@ -64337,6 +64368,81 @@ function buildKeyring(rawContours){
   }
   return{top:topGeo,base:baseGeo,w:baseW,d:baseD};
 }
+
+// Build a keyring where the SHAPE is the base (+outline) and TEXT sits raised on top of it.
+// Returns the same {top,base,w,d} shape, but `top` = letters and `base` = the shape body.
+// This lets the two be colored separately (text vs shape) just like text keyrings.
+function buildShapeWithText(rawShapeContours, textContours){
+  const all=rawShapeContours.flat();if(!all.length)return null;
+  const bb=bboxOf(all);const cx=(bb.mnx+bb.mxx)/2,cy=(bb.mny+bb.mxy)/2;
+  const shapeC=rawShapeContours.map(c=>c.map(p=>new THREE.Vector2(p.x-cx,p.y-cy)));
+  const w=bb.mxx-bb.mnx,d=bb.mxy-bb.mny;
+  const baseW=w+(state.useOutline?state.outlineW*2:0);
+  const baseD=d+(state.useOutline?state.outlineW*2:0);
+  const holes=state.holes.map(hl=>({cx:hl.x*baseW,cy:hl.y*baseD,r:hl.r/2,outline:!!hl.outline}));
+  const holeContours=holes.map(h=>circleContour(h.cx,h.cy,h.r));
+
+  // BASE = the shape body (with optional outline collar + holes punched through)
+  let baseGeo=null;
+  if(state.useOutline){
+    const collars=holes.filter(h=>h.outline).map(h=>circleContour(h.cx,h.cy,h.r+state.outlineW));
+    const baseGroups=buildOutlineBase(shapeC.map(c=>c.slice()),state.outlineW,collars);
+    const baseShapeObjs=[];
+    for(const grp of baseGroups){
+      const s=new THREE.Shape();s.setFromPoints(grp.outer);s._pts=grp.outer;
+      s.holes=grp.holes.map(h=>{const hp=new THREE.Path();hp.setFromPoints(h);return hp;});
+      baseShapeObjs.push(s);
+    }
+    if(baseShapeObjs.length){attachHoles(baseShapeObjs,holeContours);baseGeo=manifold(new THREE.ExtrudeGeometry(baseShapeObjs,{depth:state.baseH,bevelEnabled:false,curveSegments:12}));}
+  }else{
+    // no outline: the shape itself is the base body
+    const shapeObjs=contoursToShapes(shapeC.map(c=>c.slice()));attachHoles(shapeObjs,holeContours);
+    baseGeo=manifold(new THREE.ExtrudeGeometry(shapeObjs,{depth:state.baseH||state.height,bevelEnabled:false,curveSegments:12}));
+  }
+
+  // TOP = the text, centered on the shape, scaled to fit inside it, raised on top of the base
+  let topGeo=null;
+  if(textContours&&textContours.length){
+    const ta=textContours.flat();const tbb=bboxOf(ta);
+    const tcx=(tbb.mnx+tbb.mxx)/2,tcy=(tbb.mny+tbb.mxy)/2;
+    const tw=tbb.mxx-tbb.mnx,th=tbb.mxy-tbb.mny;
+    // fit text to ~70% of the shape's inner size
+    const fit=Math.min((w*0.7)/(tw||1),(d*0.7)/(th||1));
+    const tc=textContours.map(c=>c.map(p=>new THREE.Vector2((p.x-tcx)*fit,(p.y-tcy)*fit)));
+    const topShapes=contoursToShapes(tc.map(c=>c.slice()));
+    if(topShapes.length){
+      topGeo=new THREE.ExtrudeGeometry(topShapes,{depth:state.height,bevelEnabled:false,curveSegments:12});
+      const baseTop=state.useOutline?state.baseH:(state.baseH||state.height);
+      const EMBED=Math.min(0.6,baseTop*0.5);
+      topGeo.translate(0,0,baseTop-EMBED);
+      topGeo=manifold(topGeo);
+    }
+  }
+  // if there's no text, fall back to a shape-only keyring (top = shape body, base = outline)
+  if(!topGeo){ return buildKeyring(rawShapeContours); }
+  return{top:topGeo,base:baseGeo,w:baseW,d:baseD};
+}
+
+// resolve a shape's raw contours (built-in or custom) scaled to `size` mm
+function shapeContoursById(shapeId, tab, size){
+  let contours;
+  if(tab==='custom'){const cs=customShapes.find(c=>c.id===shapeId);if(cs)contours=cs.type==='svg'?svgPathToContours(cs.data):cs._contours;}
+  else{contours=svgPathToContours(SHAPES[shapeId]||SHAPES.rounded);}
+  if(!contours||!contours.length)return null;
+  const all=contours.flat();const bb=bboxOf(all);
+  const s=size/Math.max(bb.mxx-bb.mnx,bb.mxy-bb.mny);
+  return contours.map(c=>c.map(p=>new THREE.Vector2(p.x*s,p.y*s)));
+}
+// build one composed plate item: a shape, optionally with text raised on top
+function buildPlateItem(pi){
+  const shapeC=shapeContoursById(pi.shapeId, pi.tab||'base', pi.size||state.shapeSize);
+  if(!shapeC)return null;
+  if(pi.text && state.font){
+    const{contours}=glyphContours(state.font,pi.text,state.fontSize,state.letterSpace);
+    if(contours&&contours.length)return buildShapeWithText(shapeC, contours);
+  }
+  return buildKeyring(shapeC);
+}
 // weld duplicate vertices AND drop degenerate (zero-area) triangles so the mesh
 // is a closed watertight manifold solid (fixes Bambu non-manifold-edge errors).
 // NOTE: we do NOT compute averaged vertex normals — averaging tilts the flat top
@@ -64398,6 +64504,11 @@ function rebuild(){
       const kr=buildKeyring(contours);if(kr)items.push({...kr,name:String(state.shapeId)+'#0',label:String(state.shapeId)});
     }
   }
+  // composed plate items (shapes, optionally with text on top) — always shown
+  (state.plate||[]).forEach(pi=>{
+    const kr=buildPlateItem(pi);
+    if(kr)items.push({...kr,name:'plate#'+pi.id,label:pi.text||pi.shapeId});
+  });
   if(!items.length){updateDims(0,0,0,0);lastBuilt=null;return;}
 
   // initial auto-layout (vertical stack centered) — only fills placement for names not yet placed
@@ -64459,16 +64570,43 @@ function sanitize(s){return String(s).replace(/[^\w가-힣]/g,'_').slice(0,24)||
 function projectTag(){return sanitize(state.mode==='text'?(($('names').value.split('\n')[0]||'keyring').trim()):state.shapeId);}
 
 // build a fresh group of cloned meshes at their placed positions, filtered by role
-function placedGroup(roleFilter){
-  const group=new THREE.Group();
+// Compute the shared bake offset from the FULL model (all roles) so that
+// role-filtered exports (top-only, base-only) stay perfectly aligned with each other.
+function modelBakeOffset(){
+  modelGroup.updateMatrixWorld(true);
+  const box=new THREE.Box3();let any=false;
   modelGroup.children.forEach(child=>{
-    const wrap=new THREE.Group();wrap.position.copy(child.position);wrap.rotation.copy(child.rotation);
+    child.updateMatrixWorld(true);
+    child.children.forEach(mesh=>{
+      mesh.updateMatrixWorld(true);
+      const g=mesh.geometry.clone();g.applyMatrix4(mesh.matrixWorld);g.computeBoundingBox();
+      box.union(g.boundingBox);any=true;
+    });
+  });
+  if(!any)return{cx:0,cy:0,cz:0};
+  return{cx:(box.min.x+box.max.x)/2, cy:(box.min.y+box.max.y)/2, cz:box.min.z};
+}
+// Produce a group whose meshes have ALL transforms baked into geometry, recentered to a
+// SHARED origin and seated on the bed (z>=0). Fixes off-plate placement and misalignment.
+function placedGroup(roleFilter,offset){
+  modelGroup.updateMatrixWorld(true);
+  const off=offset||modelBakeOffset();
+  const group=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial();
+  modelGroup.children.forEach(child=>{
+    child.updateMatrixWorld(true);
     child.children.forEach(mesh=>{
       const role=mesh.userData.role;
-      if(!roleFilter||role===roleFilter)wrap.add(mesh.clone());
+      if(roleFilter&&role!==roleFilter)return;
+      mesh.updateMatrixWorld(true);
+      const g=mesh.geometry.clone();
+      g.applyMatrix4(mesh.matrixWorld);     // bake world transform
+      g.translate(-off.cx,-off.cy,-off.cz); // recenter + seat on z=0 using SHARED offset
+      const m=new THREE.Mesh(g,mat);m.userData.role=role;
+      group.add(m);
     });
-    if(wrap.children.length)group.add(wrap);
   });
+  group.updateMatrixWorld(true);
   return group;
 }
 
@@ -64494,8 +64632,9 @@ function exportSTLSplit(){
     downloadBlob(exporter.parse(only,{binary:false}),projectTag()+'.stl',false);
     toast('외곽선이 꺼져 있어 단일 STL로 저장했습니다','err');return;
   }
-  const top=placedGroup('top');
-  const base=placedGroup('base');
+  const off=modelBakeOffset();
+  const top=placedGroup('top',off);
+  const base=placedGroup('base',off);
   if(!top.children.length||!base.children.length){toast('내보낼 메시가 없습니다','err');return;}
   const tag=projectTag();
   // bundle BOTH into one ZIP so the browser never blocks a second download
@@ -64525,14 +64664,23 @@ function exportSTLSplit(){
   downloadBlob(fflate.zipSync(files,{level:6}),tag+'_색상분리.zip',true);
   toast('색상별 분리 STL (ZIP) 다운로드 ✔ · 사용법 포함');
 }
-// each keyring as its own STL, all zipped together
+// each keyring as its own STL, all zipped together (each centered + seated on the bed)
 function exportSTLZip(){
   if(!lastBuilt){toast('먼저 모델을 만들어 주세요','err');return;}
+  modelGroup.updateMatrixWorld(true);
   const files={};
+  const mat=new THREE.MeshStandardMaterial();
   modelGroup.children.forEach((child,i)=>{
+    child.updateMatrixWorld(true);
     const it=child.userData.item;const nm=sanitize(it?it.label:('keyring'+i))+'_'+(i+1);
-    const g=new THREE.Group();child.children.forEach(m=>g.add(m.clone()));
-    // center each one at origin for individual printing
+    // bake this keyring's meshes, then center it at origin and seat on z=0
+    const box=new THREE.Box3();const geos=[];
+    child.children.forEach(m=>{m.updateMatrixWorld(true);const g=m.geometry.clone();g.applyMatrix4(m.matrixWorld);g.computeBoundingBox();box.union(g.boundingBox);geos.push(g);});
+    if(!geos.length)return;
+    const cx=(box.min.x+box.max.x)/2,cy=(box.min.y+box.max.y)/2,cz=box.min.z;
+    const g=new THREE.Group();
+    geos.forEach(geo=>{geo.translate(-cx,-cy,-cz);g.add(new THREE.Mesh(geo,mat));});
+    g.updateMatrixWorld(true);
     files[nm+'.stl']=fflate.strToU8(exporter.parse(g,{binary:false}));
   });
   const zipped=fflate.zipSync(files,{level:6});
@@ -64541,11 +64689,12 @@ function exportSTLZip(){
 }
 
 // ----- 3MF with per-part filament colors (opens colored in Bambu Studio) -----
-function meshObjectXML(geom,matrix,objId){
+function meshObjectXML(geom,matrix,objId,off){
   const pos=geom.attributes.position;const idx=geom.index;
+  const ox=off?off.cx:0, oy=off?off.cy:0, oz=off?off.cz:0;
   let verts='',tris='';
   const v=new THREE.Vector3();
-  for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(matrix);verts+=`<vertex x="${v.x.toFixed(4)}" y="${v.y.toFixed(4)}" z="${v.z.toFixed(4)}"/>`;}
+  for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(matrix);verts+=`<vertex x="${(v.x-ox).toFixed(4)}" y="${(v.y-oy).toFixed(4)}" z="${(v.z-oz).toFixed(4)}"/>`;}
   if(idx){for(let i=0;i<idx.count;i+=3)tris+=`<triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}"/>`;}
   else{for(let i=0;i<pos.count;i+=3)tris+=`<triangle v1="${i}" v2="${i+1}" v3="${i+2}"/>`;}
   return `<object id="${objId}" type="model"><mesh><vertices>${verts}</vertices><triangles>${tris}</triangles></mesh></object>`;
@@ -64561,13 +64710,14 @@ function export3MF(){
   const meshObjs=[];   // {id, xml}
   const parents=[];    // {id, name, parts:[{meshId, ext, name}]}
   let nextId=1;
+  const off3=modelBakeOffset();   // recenter the whole model onto the plate
   modelGroup.children.forEach((child,gi)=>{
     child.updateMatrixWorld(true);
     const parts=[];
     child.children.forEach(mesh=>{
       mesh.updateMatrixWorld(true);
       const mid=nextId++;
-      meshObjs.push({id:mid,xml:meshObjectXML(mesh.geometry,mesh.matrixWorld,mid)});
+      meshObjs.push({id:mid,xml:meshObjectXML(mesh.geometry,mesh.matrixWorld,mid,off3)});
       parts.push({meshId:mid,ext:mesh.userData.role==='base'?2:1,name:mesh.userData.role==='base'?'base':'top'});
     });
     const pid=nextId++;
@@ -64760,6 +64910,38 @@ function switchToShapeTab(tab){
   $('shapeGridBase').style.display=tab==='base'?'grid':'none';
   $('customWrap').style.display=tab==='custom'?'block':'none';
 }
+
+/* ===== PLATE COMPOSITION (multiple shapes + text on shapes) ===== */
+let plateSeq=1;
+function renderPlateList(){
+  const el=$('plateList');if(!el)return;
+  if(!state.plate.length){el.innerHTML='<div style="color:var(--muted);font-size:11.5px;text-align:center;padding:8px 0">판에 추가된 도형이 없습니다.<br>도형을 고르고 위 버튼으로 추가하세요.</div>';return;}
+  el.innerHTML='<div style="font-size:11px;color:var(--muted);margin:2px 0 6px">판 위 도형 ('+state.plate.length+')</div>';
+  state.plate.forEach(pi=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--panel2,#1a1d27);border:1px solid var(--bd,#2a2e3a);border-radius:8px;margin-bottom:6px';
+    const lbl=pi.text?(pi.shapeId+' · "'+pi.text+'"'):pi.shapeId;
+    row.innerHTML='<span style="flex:1;font-size:12px;color:var(--txt,#e8eaf0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lbl+' <span style="color:var(--muted);font-size:10.5px">('+Math.round(pi.size)+'mm)</span></span>';
+    const del=document.createElement('button');
+    del.textContent='✕';del.title='삭제';
+    del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px';
+    del.onclick=()=>{state.plate=state.plate.filter(x=>x.id!==pi.id);delete placement['plate#'+pi.id];renderPlateList();rebuild();toast('도형을 판에서 제거했습니다');};
+    row.appendChild(del);
+    el.appendChild(row);
+  });
+}
+if($('addToPlate')) $('addToPlate').onclick=()=>{
+  const raw=($('shapeText').value||'').trim();
+  const lines=raw?raw.split('\n').map(s=>s.trim()).filter(Boolean):[''];
+  lines.forEach(txt=>{
+    state.plate.push({id:plateSeq++, shapeId:state.shapeId, tab:state.shapeTab, size:state.shapeSize, text:txt});
+  });
+  $('shapeText').value='';
+  renderPlateList();rebuild();autoArrange();
+  const n=lines.length;
+  toast(n>1?(n+'개를 판에 추가했습니다'):(lines[0]?'도형+글자를 판에 추가했습니다':'도형을 판에 추가했습니다'));
+};
+renderPlateList();
 
 // upload custom shape
 $('uploadShape').onclick=()=>$('shapeFile').click();
